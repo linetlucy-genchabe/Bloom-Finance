@@ -44,4 +44,4 @@ desktop.ini
 # Migrations (optional - many teams commit these, but since you're starting fresh)
 # calculator/migrations/get-pip.py
 
-get-pip.py
+get-pip.py.env.example
