@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Subscriptions — Bloom Finance{% endblock %}
+{% block page_title %}📱 Subscriptions{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700">My Subscriptions</h2>
+    <p style="color:var(--text-secondary);font-size:13px">
+      Monthly: <strong>{{ profile.currency }} {{ total_monthly|floatformat:0|intcomma }}</strong> ·
+      Yearly: <strong>{{ profile.currency }} {{ total_yearly|floatformat:0|intcomma }}</strong>
+    </p>
+  </div>
+  <a href="{% url 'subscription_add' %}" class="btn btn-primary">+ Add Subscription</a>
+</div>
+
+{% if upcoming %}
+<div class="alert alert-warning" style="margin-bottom:20px">
+  🔔 <strong>Upcoming renewals:</strong>
+  {% for sub in upcoming %}
+    {{ sub.emoji }} {{ sub.name }} ({{ sub.days_until_renewal }} day{{ sub.days_until_renewal|pluralize }}){% if not forloop.last %}, {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if subscriptions %}
+<div class="card">
+  {% for sub in subscriptions %}
+  <div class="sub-item">
+    <div class="sub-emoji">{{ sub.emoji }}</div>
+    <div class="sub-info">
+      <div class="sub-name">{{ sub.name }}</div>
+      <div class="sub-meta">
+        {{ sub.get_billing_cycle_display }} · {{ sub.get_category_display }}
+        {% if sub.website %} · <a href="{{ sub.website }}" target="_blank" style="color:var(--lilac-dark)">Visit ↗</a>{% endif %}
+      </div>
+      <div class="sub-meta" style="margin-top:2px">
+        Next: {{ sub.next_billing_date|date:"M d, Y" }} ·
+        <span class="sub-renewal-{% if sub.renewal_status == 'urgent' %}urgent{% elif sub.renewal_status == 'soon' %}soon{% else %}ok{% endif %}">
+          {% if sub.days_until_renewal == 0 %}Due TODAY
+          {% elif sub.days_until_renewal == 1 %}Tomorrow
+          {% elif sub.days_until_renewal < 0 %}Overdue by {{ sub.days_until_renewal|stringformat:'s'|slice:'1:' }} days
+          {% else %}{{ sub.days_until_renewal }} days{% endif %}
+        </span>
+      </div>
+    </div>
+    <div style="text-align:right;margin-right:12px">
+      <div class="sub-amount">{{ profile.currency }} {{ sub.amount|floatformat:0 }}</div>
+      <div style="font-size:11px;color:var(--text-light)">{{ sub.get_billing_cycle_display }}</div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:2px">≈ {{ profile.currency }} {{ sub.monthly_cost|floatformat:0 }}/mo</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <a href="{% url 'subscription_edit' sub.pk %}" class="btn btn-outline btn-sm">✏️</a>
+      <form method="post" action="{% url 'subscription_delete' sub.pk %}" id="del-sub-{{ sub.pk }}" style="display:inline">
+        {% csrf_token %}
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-sub-{{ sub.pk }}', '{{ sub.name }}')">🗑️</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">📱</div>
+    <div class="empty-title">No subscriptions tracked</div>
+    <div class="empty-text">Add Netflix, Spotify, gym memberships and more</div>
+    <a href="{% url 'subscription_add' %}" class="btn btn-primary" style="margin-top:16px">+ Add Subscription</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

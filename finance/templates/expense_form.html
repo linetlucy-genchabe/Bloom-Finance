@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}{% if expense %}Edit{% else %}Add{% endif %} Expense — Bloom Finance{% endblock %}
+{% block page_title %}{% if expense %}✏️ Edit Expense{% else %}➕ Add Expense{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if expense %}Edit "{{ expense.title }}"{% else %}💸 New Expense{% endif %}</div>
+      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <input type="text" name="title" class="form-control" placeholder="e.g. Lunch at Java" value="{{ expense.title|default:'' }}" required autofocus>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount ({{ profile.currency }}) *</label>
+          <input type="number" name="amount" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ expense.amount|default:'' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input type="date" name="date" class="form-control" value="{{ expense.date|date:'Y-m-d'|default:today }}" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-control">
+            {% for key, label in categories %}
+            <option value="{{ key }}" {% if expense.category == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Method</label>
+          <select name="payment_method" class="form-control">
+            <option value="mpesa" {% if expense.payment_method == 'mpesa' %}selected{% endif %}>📱 M-Pesa</option>
+            <option value="cash" {% if expense.payment_method == 'cash' %}selected{% endif %}>💵 Cash</option>
+            <option value="card" {% if expense.payment_method == 'card' %}selected{% endif %}>💳 Bank Card</option>
+            <option value="bank" {% if expense.payment_method == 'bank' %}selected{% endif %}>🏦 Bank Transfer</option>
+            <option value="other" {% if expense.payment_method == 'other' %}selected{% endif %}>📦 Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" placeholder="Any additional notes...">{{ expense.notes|default:'' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <input type="text" name="tags" class="form-control" placeholder="e.g. work, team-lunch, personal" value="{{ expense.tags|default:'' }}">
+        <div class="form-hint">Separate tags with commas</div>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" name="is_recurring" {% if expense.is_recurring %}checked{% endif %}>
+          🔁 This is a recurring expense
+        </label>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-top:8px">
+        <button type="submit" class="btn btn-primary">{% if expense %}💾 Save Changes{% else %}➕ Add Expense{% endif %}</button>
+        <a href="{% url 'expenses' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

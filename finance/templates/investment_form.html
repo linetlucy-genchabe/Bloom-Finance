@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{% if inv %}Edit{% else %}Add{% endif %} Investment — Bloom Finance{% endblock %}
+{% block page_title %}{% if inv %}✏️ Edit Investment{% else %}📈 Add Investment{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if inv %}Edit "{{ inv.name }}"{% else %}New Investment{% endif %}</div>
+      <a href="{% url 'investments' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Investment Name *</label>
+        <input type="text" name="name" class="form-control" placeholder="e.g. Safaricom Shares, Bitcoin, Stanbic SACCO" value="{{ inv.name|default:'' }}" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Investment Type *</label>
+        <select name="investment_type" class="form-control">
+          {% for key, label in investment_types %}
+          <option value="{{ key }}" {% if inv.investment_type == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount Invested ({{ profile.currency }}) *</label>
+          <input type="number" name="amount_invested" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ inv.amount_invested|default:'' }}" required>
+          <div class="form-hint">Original amount you put in</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Current Value ({{ profile.currency }}) *</label>
+          <input type="number" name="current_value" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ inv.current_value|default:'' }}" required>
+          <div class="form-hint">What it's worth today</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date Invested</label>
+        <input type="date" name="date_invested" class="form-control" value="{{ inv.date_invested|date:'Y-m-d'|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" placeholder="Any notes about this investment...">{{ inv.notes|default:'' }}</textarea>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary">{% if inv %}💾 Save Changes{% else %}📈 Add Investment{% endif %}</button>
+        <a href="{% url 'investments' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

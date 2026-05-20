@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Expenses — Bloom Finance{% endblock %}
+{% block page_title %}💸 Expenses{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700;color:var(--text-primary)">All Expenses</h2>
+    <p style="color:var(--text-secondary);font-size:13px">Total: <strong>{{ profile.currency }} {{ total|floatformat:0|intcomma }}</strong></p>
+  </div>
+  <a href="{% url 'expense_add' %}" class="btn btn-primary">+ Add Expense</a>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:20px;padding:16px 24px">
+  <form method="get" class="filter-bar">
+    <input type="text" name="search" class="form-control" placeholder="🔍 Search..." value="{{ search }}">
+    <select name="category" class="form-control">
+      <option value="">All Categories</option>
+      {% for key, label in categories %}
+      <option value="{{ key }}" {% if selected_category == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <input type="month" name="month" class="form-control" value="{{ selected_month }}">
+    <button type="submit" class="btn btn-outline">Filter</button>
+    <a href="{% url 'expenses' %}" class="btn btn-outline">Clear</a>
+  </form>
+</div>
+
+<!-- Table -->
+<div class="card">
+  {% if expenses %}
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Category</th>
+          <th>Method</th>
+          <th>Date</th>
+          <th>Amount</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exp in expenses %}
+        <tr>
+          <td>
+            <strong>{{ exp.title }}</strong>
+            {% if exp.is_recurring %}<span class="badge badge-warning" style="margin-left:6px;font-size:10px">🔁 Recurring</span>{% endif %}
+            {% if exp.notes %}<br><small style="color:var(--text-light)">{{ exp.notes|truncatechars:50 }}</small>{% endif %}
+            {% if exp.tag_list %}
+            <div style="margin-top:4px">{% for tag in exp.tag_list %}<span class="badge badge-lilac" style="margin-right:3px;font-size:10px">#{{ tag }}</span>{% endfor %}</div>
+            {% endif %}
+          </td>
+          <td><span class="badge badge-lilac">{{ exp.category_display }}</span></td>
+          <td><span style="color:var(--text-secondary);font-size:13px">{{ exp.get_payment_method_display }}</span></td>
+          <td style="color:var(--text-secondary);font-size:13px;white-space:nowrap">{{ exp.date|date:"M d, Y" }}</td>
+          <td style="font-weight:700;color:var(--lilac-dark);white-space:nowrap">{{ profile.currency }} {{ exp.amount|floatformat:0|intcomma }}</td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="{% url 'expense_edit' exp.pk %}" class="btn btn-outline btn-sm">✏️</a>
+              <form method="post" action="{% url 'expense_delete' exp.pk %}" style="display:inline" id="del-exp-{{ exp.pk }}">
+                {% csrf_token %}
+                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-exp-{{ exp.pk }}', '{{ exp.title }}')">🗑️</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">💸</div>
+    <div class="empty-title">No expenses found</div>
+    <div class="empty-text">{% if search or selected_category or selected_month %}Try adjusting your filters{% else %}Start tracking your spending{% endif %}</div>
+    <a href="{% url 'expense_add' %}" class="btn btn-primary" style="margin-top:16px">+ Add First Expense</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

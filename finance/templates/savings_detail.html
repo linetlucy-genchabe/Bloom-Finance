@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}{{ account.name }} — Bloom Finance{% endblock %}
+{% block page_title %}{{ account.emoji }} {{ account.name }}{% endblock %}
+
+{% block content %}
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Account Overview</div>
+      <a href="{% url 'savings' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <div style="text-align:center;padding:10px 0">
+      <div style="font-size:48px;margin-bottom:8px">{{ account.emoji }}</div>
+      <div style="font-size:28px;font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ account.balance|floatformat:0|intcomma }}</div>
+      {% if account.target > 0 %}
+      <div style="color:var(--text-secondary);font-size:13px;margin-top:4px">of {{ profile.currency }} {{ account.target|floatformat:0|intcomma }} goal</div>
+      <div class="progress-bar" style="margin:16px 0 6px">
+        <div class="progress-fill green" style="width:{{ account.progress_percent }}%"></div>
+      </div>
+      <div style="font-size:13px;color:var(--text-secondary)">{{ account.progress_percent }}% complete</div>
+      {% endif %}
+      {% if account.interest_rate > 0 %}
+      <div class="badge badge-success" style="margin-top:12px">{{ account.interest_rate }}% Annual Rate</div>
+      {% endif %}
+    </div>
+
+    <!-- Quick Transaction -->
+    <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:20px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:14px">💰 Record Transaction</div>
+      <form method="post" action="{% url 'savings_transact' account.pk %}">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select name="transaction_type" class="form-control">
+            <option value="deposit">💚 Deposit</option>
+            <option value="withdrawal">🔴 Withdrawal</option>
+            <option value="interest">✨ Interest</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" name="date" class="form-control" value="{% now 'Y-m-d' %}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <input type="text" name="notes" class="form-control" placeholder="Optional note...">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Record Transaction</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">📋 Transaction History</div>
+    {% if transactions %}
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Type</th><th>Amount</th><th>Date</th><th>Notes</th></tr></thead>
+        <tbody>
+          {% for txn in transactions %}
+          <tr>
+            <td>
+              {% if txn.transaction_type == 'deposit' %}<span class="badge badge-success">💚 Deposit</span>
+              {% elif txn.transaction_type == 'withdrawal' %}<span class="badge badge-danger">🔴 Withdraw</span>
+              {% else %}<span class="badge badge-lilac">✨ Interest</span>{% endif %}
+            </td>
+            <td style="font-weight:700;{% if txn.transaction_type == 'withdrawal' %}color:var(--danger){% else %}color:var(--success){% endif %}">
+              {% if txn.transaction_type == 'withdrawal' %}-{% else %}+{% endif %}{{ profile.currency }} {{ txn.amount|floatformat:0|intcomma }}
+            </td>
+            <td style="color:var(--text-secondary);font-size:13px">{{ txn.date|date:"M d, Y" }}</td>
+            <td style="color:var(--text-light);font-size:13px">{{ txn.notes|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:30px"><div class="empty-icon" style="font-size:40px">📋</div><div class="empty-title" style="font-size:14px">No transactions yet</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

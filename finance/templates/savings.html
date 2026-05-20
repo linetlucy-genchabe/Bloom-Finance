@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Savings — Bloom Finance{% endblock %}
+{% block page_title %}🏦 Savings{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700">Savings Accounts</h2>
+    <p style="color:var(--text-secondary);font-size:13px">Total saved: <strong>{{ profile.currency }} {{ total_savings|floatformat:0|intcomma }}</strong></p>
+  </div>
+  <a href="{% url 'savings_add' %}" class="btn btn-primary">+ New Account</a>
+</div>
+
+{% if accounts %}
+<div class="savings-grid">
+  {% for acc in accounts %}
+  <div class="savings-card">
+    <div class="savings-name">{{ acc.emoji }} {{ acc.name }}</div>
+    {% if acc.description %}<p style="color:var(--text-secondary);font-size:12px;margin-top:4px">{{ acc.description }}</p>{% endif %}
+    <div class="savings-balance">{{ profile.currency }} {{ acc.balance|floatformat:0|intcomma }}</div>
+    {% if acc.target > 0 %}
+    <div class="savings-target">Target: {{ profile.currency }} {{ acc.target|floatformat:0|intcomma }}</div>
+    <div class="progress-bar" style="margin-top:8px">
+      <div class="progress-fill green" style="width:{{ acc.progress_percent }}%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-top:3px">
+      <span>{{ acc.progress_percent }}% reached</span>
+      {% if acc.interest_rate > 0 %}<span>{{ acc.interest_rate }}% p.a.</span>{% endif %}
+    </div>
+    {% endif %}
+    <div class="savings-actions">
+      <a href="{% url 'savings_detail' acc.pk %}" class="btn btn-outline btn-sm">📋 Details</a>
+      <a href="{% url 'savings_edit' acc.pk %}" class="btn btn-outline btn-sm">✏️ Edit</a>
+      <form method="post" action="{% url 'savings_delete' acc.pk %}" style="display:inline" id="del-sav-{{ acc.pk }}">
+        {% csrf_token %}
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-sav-{{ acc.pk }}', '{{ acc.name }}')">🗑️</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">🏦</div>
+    <div class="empty-title">No savings accounts yet</div>
+    <div class="empty-text">Start saving towards your future!</div>
+    <a href="{% url 'savings_add' %}" class="btn btn-primary" style="margin-top:16px">+ Create Savings Account</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}{% if sub %}Edit{% else %}Add{% endif %} Subscription — Bloom Finance{% endblock %}
+{% block page_title %}{% if sub %}✏️ Edit Subscription{% else %}➕ Add Subscription{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if sub %}Edit "{{ sub.name }}"{% else %}New Subscription{% endif %}</div>
+      <a href="{% url 'subscriptions' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Service Name *</label>
+        <input type="text" name="name" class="form-control" placeholder="e.g. Netflix, Spotify, Gym" value="{{ sub.name|default:'' }}" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Choose Emoji</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          {% for emoji in "📺🎵🎮💪📰☁️💳📱🔧🎬🛒🎓" %}
+          <button type="button" class="emoji-pick" data-target="emoji-input" style="font-size:22px;background:var(--lilac-light);border:2px solid transparent;border-radius:8px;padding:6px 10px;cursor:pointer">{{ emoji }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="emoji" id="emoji-input" value="{{ sub.emoji|default:'📱' }}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select name="category" class="form-control">
+            {% for key, label in categories %}
+            <option value="{{ key }}" {% if sub.category == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Billing Cycle</label>
+          <select name="billing_cycle" class="form-control">
+            {% for key, label in billing_cycles %}
+            <option value="{{ key }}" {% if sub.billing_cycle == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount ({{ profile.currency }}) *</label>
+          <input type="number" name="amount" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ sub.amount|default:'' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Next Billing Date *</label>
+          <input type="date" name="next_billing_date" class="form-control" value="{{ sub.next_billing_date|date:'Y-m-d'|default:today }}" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Website / URL</label>
+        <input type="url" name="website" class="form-control" placeholder="https://..." value="{{ sub.website|default:'' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" name="notes" class="form-control" placeholder="e.g. Family plan, shared with sister" value="{{ sub.notes|default:'' }}">
+      </div>
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary">{% if sub %}💾 Save Changes{% else %}➕ Add Subscription{% endif %}</button>
+        <a href="{% url 'subscriptions' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

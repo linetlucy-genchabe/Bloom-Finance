@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Bloom Finance 🌸{% endblock %}</title>
+  {% load static %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="{% static 'css/bloom.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">🌸</div>
+    <div class="logo-text">Bloom Finance</div>
+  </div>
+
+  {% if profile %}
+  <div class="user-card">
+    <div class="user-avatar">{{ profile.avatar_emoji }}</div>
+    <div class="user-info">
+      <div class="user-name">{{ profile.display_name }}</div>
+      <div class="user-sub">{{ profile.currency }} Account</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <nav class="sidebar-nav">
+    <a href="{% url 'dashboard' %}" class="nav-item {% if request.resolver_match.request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <span class="nav-icon">🏠</span> Dashboard
+    </a>
+    <a href="{% url 'expenses' %}" class="nav-item {% if request.resolver_match.request.resolver_match.url_name in 'expenses expense_add expense_edit expense_delete' %}active{% endif %}">
+      <span class="nav-icon">💸</span> Expenses
+    </a>
+    <a href="{% url 'savings' %}" class="nav-item {% if request.resolver_match.request.resolver_match.url_name in 'savings savings_add savings_edit savings_detail savings_transact savings_delete' %}active{% endif %}">
+      <span class="nav-icon">🏦</span> Savings
+    </a>
+    <a href="{% url 'investments' %}" class="nav-item {% if request.resolver_match.request.resolver_match.url_name in 'investments investment_add investment_edit investment_delete' %}active{% endif %}">
+      <span class="nav-icon">📈</span> Investments
+    </a>
+    <a href="{% url 'subscriptions' %}" class="nav-item {% if request.resolver_match.request.resolver_match.url_name in 'subscriptions subscription_add subscription_edit subscription_delete' %}active{% endif %}">
+      <span class="nav-icon">📱</span> Subscriptions
+    </a>
+    <a href="{% url 'goals' %}" class="nav-item {% if request.resolver_match.request.resolver_match.url_name in 'goals goal_add goal_edit goal_contribute goal_delete' %}active{% endif %}">
+      <span class="nav-icon">🎯</span> Goals
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <a href="{% url 'settings' %}" class="nav-item">
+      <span class="nav-icon">⚙️</span> Settings
+    </a>
+    <a href="{% url 'lock' %}" class="nav-item lock-btn">
+      <span class="nav-icon">🔒</span> Lock
+    </a>
+  </div>
+</div>
+
+<!-- Mobile overlay -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- Main content -->
+<div class="main-content">
+  <header class="topbar">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+    <div class="topbar-actions">
+      {% if upcoming_renewals %}
+      <div class="notif-badge" title="Upcoming renewals">🔔 {{ upcoming_renewals|length }}</div>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if messages %}
+  <div class="messages-container">
+    {% for message in messages %}
+    <div class="message message-{{ message.tags }}">
+      {{ message }}
+      <button onclick="this.parentElement.remove()" class="msg-close">×</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <main class="content-area">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script src="{% static 'js/bloom.js' %}"></script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

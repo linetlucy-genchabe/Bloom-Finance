@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}{% if account %}Edit{% else %}New{% endif %} Savings Account — Bloom Finance{% endblock %}
+{% block page_title %}{% if account %}✏️ Edit Account{% else %}🌱 New Savings Account{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if account %}Edit "{{ account.name }}"{% else %}Create Savings Account{% endif %}</div>
+      <a href="{% url 'savings' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Account Name *</label>
+        <input type="text" name="name" class="form-control" placeholder="e.g. Emergency Fund, House Deposit" value="{{ account.name|default:'' }}" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Choose an Emoji</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          {% for emoji in "💰🏦🏠🚗✈️📚💊👨‍👩‍👧💎🌱" %}
+          <button type="button" class="emoji-pick" data-target="emoji-input" style="font-size:22px;background:var(--lilac-light);border:2px solid transparent;border-radius:8px;padding:6px 10px;cursor:pointer">{{ emoji }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="emoji" id="emoji-input" value="{{ account.emoji|default:'💰' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-control" placeholder="What is this account for?">{{ account.description|default:'' }}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Current Balance ({{ profile.currency }})</label>
+          <input type="number" name="balance" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ account.balance|default:'0' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Amount ({{ profile.currency }})</label>
+          <input type="number" name="target" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ account.target|default:'0' }}">
+          <div class="form-hint">Optional goal amount</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Annual Interest Rate (%)</label>
+        <input type="number" name="interest_rate" class="form-control" step="0.01" min="0" max="100" placeholder="0.00" value="{{ account.interest_rate|default:'0' }}">
+        <div class="form-hint">For SACCO or interest-bearing accounts</div>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary">{% if account %}💾 Save Changes{% else %}🌱 Create Account{% endif %}</button>
+        <a href="{% url 'savings' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

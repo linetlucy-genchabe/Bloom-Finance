@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Goals — Bloom Finance{% endblock %}
+{% block page_title %}🎯 Goals{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700">My Goals & Dreams</h2>
+    <p style="color:var(--text-secondary);font-size:13px">The big things you're working towards 💜</p>
+  </div>
+  <a href="{% url 'goal_add' %}" class="btn btn-primary">+ New Goal</a>
+</div>
+
+<!-- Active Goals -->
+{% if active_goals %}
+<h3 style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px">🌱 In Progress</h3>
+<div class="goal-grid" style="margin-bottom:32px">
+  {% for goal in active_goals %}
+  <div class="goal-card">
+    <div class="goal-emoji">{{ goal.emoji }}</div>
+    <div class="goal-name">{{ goal.name }}</div>
+    {% if goal.description %}<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">{{ goal.description }}</p>{% endif %}
+
+    <div class="progress-bar">
+      <div class="progress-fill {% if goal.progress_percent >= 75 %}green{% elif goal.progress_percent >= 50 %}{% else %}pink{% endif %}" style="width:{{ goal.progress_percent }}%"></div>
+    </div>
+
+    <div class="goal-amounts">
+      <span>💰 {{ profile.currency }} {{ goal.saved_amount|floatformat:0|intcomma }} saved</span>
+      <span>{{ goal.progress_percent }}%</span>
+    </div>
+    <div class="goal-amounts">
+      <span style="color:var(--text-light)">Target: {{ profile.currency }} {{ goal.target_amount|floatformat:0|intcomma }}</span>
+      <span style="color:var(--lilac-dark)">{{ profile.currency }} {{ goal.remaining|floatformat:0|intcomma }} left</span>
+    </div>
+
+    {% if goal.target_date %}
+    <div style="margin-top:8px;font-size:12px;color:var(--text-secondary)">
+      📅 Target: {{ goal.target_date|date:"M d, Y" }}
+      {% if goal.days_remaining is not None %}
+        {% if goal.days_remaining > 0 %}· {{ goal.days_remaining }} days left
+        {% elif goal.days_remaining == 0 %}· <span style="color:var(--danger);font-weight:600">Due today!</span>
+        {% else %}· <span style="color:var(--danger)">Overdue</span>{% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if goal.monthly_needed %}
+    <div style="margin-top:6px;font-size:11px;color:var(--text-light)">Save ~{{ profile.currency }} {{ goal.monthly_needed|floatformat:0 }}/month to reach on time</div>
+    {% endif %}
+
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <!-- Quick contribute -->
+      <form method="post" action="{% url 'goal_contribute' goal.pk %}" style="display:flex;gap:6px;flex:1">
+        {% csrf_token %}
+        <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="Add amount" style="flex:1;padding:7px 10px;font-size:13px">
+        <button type="submit" class="btn btn-success btn-sm">💚</button>
+      </form>
+      <a href="{% url 'goal_edit' goal.pk %}" class="btn btn-outline btn-sm">✏️</a>
+      <form method="post" action="{% url 'goal_delete' goal.pk %}" id="del-goal-{{ goal.pk }}" style="display:inline">
+        {% csrf_token %}
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-goal-{{ goal.pk }}', '{{ goal.name }}')">🗑️</button>
+      </form>
+    </div>
+
+    <div style="margin-top:10px">
+      <span class="badge {% if goal.priority == 'high' %}badge-danger{% elif goal.priority == 'medium' %}badge-warning{% else %}badge-lilac{% endif %}">
+        {{ goal.priority|capfirst }} Priority
+      </span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="margin-bottom:24px">
+  <div class="empty-state">
+    <div class="empty-icon">🎯</div>
+    <div class="empty-title">No active goals yet</div>
+    <div class="empty-text">Set a goal — a house, a car, travel, an emergency fund…</div>
+    <a href="{% url 'goal_add' %}" class="btn btn-primary" style="margin-top:16px">+ Create First Goal</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Achieved Goals -->
+{% if achieved_goals %}
+<h3 style="font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:14px;text-transform:uppercase;letter-spacing:.5px">🎉 Achieved</h3>
+<div class="goal-grid">
+  {% for goal in achieved_goals %}
+  <div class="goal-card" style="border:2px solid var(--success);background:var(--success-bg)">
+    <div class="goal-emoji">{{ goal.emoji }}</div>
+    <div class="goal-name" style="color:#2E7D52">🎉 {{ goal.name }}</div>
+    <div class="progress-bar" style="margin-top:8px">
+      <div class="progress-fill green" style="width:100%"></div>
+    </div>
+    <div class="goal-amounts" style="margin-top:8px">
+      <span style="color:#2E7D52;font-weight:600">{{ profile.currency }} {{ goal.saved_amount|floatformat:0|intcomma }}</span>
+      <span class="badge badge-success">✅ Achieved!</span>
+    </div>
+    <div style="margin-top:12px">
+      <form method="post" action="{% url 'goal_delete' goal.pk %}" id="del-ach-{{ goal.pk }}">
+        {% csrf_token %}
+        <button type="button" class="btn btn-outline btn-sm" onclick="confirmDelete('del-ach-{{ goal.pk }}', '{{ goal.name }}')">Remove</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

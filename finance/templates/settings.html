@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Settings — Bloom Finance{% endblock %}
+{% block page_title %}⚙️ Settings{% endblock %}
+{% block content %}
+<div class="form-container">
+  {% if messages %}
+    {% for message in messages %}
+    <div class="message message-{{ message.tags }}" style="margin-bottom:16px">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-header"><div class="card-title">👤 Profile</div></div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Display Name</label>
+        <input type="text" name="display_name" class="form-control" value="{{ profile.display_name }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Avatar</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+          {% for emoji in "🌸🌺🌻🦋🌙⭐🎀💎🌈🦄" %}
+          <button type="button" class="emoji-pick" data-target="avatar-input"
+            style="font-size:24px;background:var(--lilac-light);border:2px solid {% if profile.avatar_emoji == emoji %}var(--lilac-dark){% else %}transparent{% endif %};border-radius:10px;padding:8px;cursor:pointer">{{ emoji }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="avatar" id="avatar-input" value="{{ profile.avatar_emoji }}">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select name="currency" class="form-control">
+            <option value="KES" {% if profile.currency == 'KES' %}selected{% endif %}>🇰🇪 KES</option>
+            <option value="USD" {% if profile.currency == 'USD' %}selected{% endif %}>🇺🇸 USD</option>
+            <option value="GBP" {% if profile.currency == 'GBP' %}selected{% endif %}>🇬🇧 GBP</option>
+            <option value="EUR" {% if profile.currency == 'EUR' %}selected{% endif %}>🇪🇺 EUR</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monthly Budget</label>
+          <input type="number" name="monthly_budget" class="form-control" value="{{ profile.monthly_budget }}" placeholder="0">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">New PIN <span style="font-weight:400;text-transform:none;color:var(--text-light)">(leave blank to keep current)</span></label>
+        <input type="password" name="new_pin" class="form-control" maxlength="6" pattern="[0-9]{4,6}" placeholder="Enter new PIN" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Passphrase <span style="font-weight:400;text-transform:none;color:var(--text-light)">(leave blank to keep current)</span></label>
+        <input type="text" name="new_passphrase" class="form-control" placeholder="New backup passphrase">
+      </div>
+      <button type="submit" class="btn btn-primary">💾 Save Settings</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}{% if goal %}Edit{% else %}New{% endif %} Goal — Bloom Finance{% endblock %}
+{% block page_title %}{% if goal %}✏️ Edit Goal{% else %}🎯 New Goal{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if goal %}Edit "{{ goal.name }}"{% else %}Create a New Goal{% endif %}</div>
+      <a href="{% url 'goals' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Goal Name *</label>
+        <input type="text" name="name" class="form-control" placeholder="e.g. Buy a Car, House Deposit, Trip to Zanzibar" value="{{ goal.name|default:'' }}" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Choose an Emoji</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          {% for emoji in "🎯🏠🚗✈️💍👶🌍📚🏆🛍️💻🎓" %}
+          <button type="button" class="emoji-pick" data-target="emoji-input" style="font-size:22px;background:var(--lilac-light);border:2px solid transparent;border-radius:8px;padding:6px 10px;cursor:pointer">{{ emoji }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="emoji" id="emoji-input" value="{{ goal.emoji|default:'🎯' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-control" placeholder="Why is this goal important to you?">{{ goal.description|default:'' }}</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Target Amount ({{ profile.currency }}) *</label>
+          <input type="number" name="target_amount" class="form-control" step="0.01" min="1" placeholder="0.00" value="{{ goal.target_amount|default:'' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Already Saved ({{ profile.currency }})</label>
+          <input type="number" name="saved_amount" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ goal.saved_amount|default:'0' }}">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Target Date</label>
+          <input type="date" name="target_date" class="form-control" value="{{ goal.target_date|date:'Y-m-d'|default:'' }}">
+          <div class="form-hint">Optional — helps calculate monthly savings needed</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select name="priority" class="form-control">
+            <option value="high" {% if goal.priority == 'high' %}selected{% endif %}>🔴 High</option>
+            <option value="medium" {% if goal.priority == 'medium' or not goal %}selected{% endif %}>🟡 Medium</option>
+            <option value="low" {% if goal.priority == 'low' %}selected{% endif %}>🟢 Low</option>
+          </select>
+        </div>
+      </div>
+      {% if goal %}
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-control">
+          <option value="active" {% if goal.status == 'active' %}selected{% endif %}>🌱 Active</option>
+          <option value="achieved" {% if goal.status == 'achieved' %}selected{% endif %}>🎉 Achieved</option>
+          <option value="paused" {% if goal.status == 'paused' %}selected{% endif %}>⏸️ Paused</option>
+        </select>
+      </div>
+      {% endif %}
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary">{% if goal %}💾 Save Changes{% else %}🎯 Create Goal{% endif %}</button>
+        <a href="{% url 'goals' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

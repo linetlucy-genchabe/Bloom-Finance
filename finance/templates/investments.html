@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Investments — Bloom Finance{% endblock %}
+{% block page_title %}📈 Investments{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700">Investment Portfolio</h2>
+    <p style="color:var(--text-secondary);font-size:13px">
+      Value: <strong>{{ profile.currency }} {{ total_value|floatformat:0|intcomma }}</strong> |
+      Invested: {{ profile.currency }} {{ total_invested|floatformat:0|intcomma }} |
+      {% if total_gain >= 0 %}<span style="color:var(--success);font-weight:700">▲ +{{ profile.currency }} {{ total_gain|floatformat:0|intcomma }}</span>
+      {% else %}<span style="color:var(--danger);font-weight:700">▼ {{ profile.currency }} {{ total_gain|floatformat:0|intcomma }}</span>{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'investment_add' %}" class="btn btn-primary">+ Add Investment</a>
+</div>
+
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">📊 Portfolio Allocation</div>
+    {% if type_data != '[]' %}<canvas id="allocChart" height="220"></canvas>
+    {% else %}<div class="empty-state" style="padding:30px"><div class="empty-icon" style="font-size:40px">📈</div><div style="font-size:13px">No investments yet</div></div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">💹 Summary</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--off-white);border-radius:var(--radius-sm)">
+        <span style="color:var(--text-secondary)">Total Invested</span>
+        <span style="font-weight:700">{{ profile.currency }} {{ total_invested|floatformat:0|intcomma }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--off-white);border-radius:var(--radius-sm)">
+        <span style="color:var(--text-secondary)">Current Value</span>
+        <span style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ total_value|floatformat:0|intcomma }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:{% if total_gain >= 0 %}var(--success-bg){% else %}var(--danger-bg){% endif %};border-radius:var(--radius-sm)">
+        <span style="color:var(--text-secondary)">Total {% if total_gain >= 0 %}Gain{% else %}Loss{% endif %}</span>
+        <span style="font-weight:700;color:{% if total_gain >= 0 %}var(--success){% else %}var(--danger){% endif %}">
+          {% if total_gain >= 0 %}+{% endif %}{{ profile.currency }} {{ total_gain|floatformat:0|intcomma }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title" style="margin-bottom:16px">📋 All Investments</div>
+  {% if investments %}
+    {% for inv in investments %}
+    <div class="inv-card">
+      <div style="font-size:24px;width:44px;height:44px;background:var(--lilac-light);border-radius:10px;display:flex;align-items:center;justify-content:center">
+        {% if inv.investment_type == 'stocks' %}📈{% elif inv.investment_type == 'crypto' %}🪙{% elif inv.investment_type == 'sacco' %}🏦{% elif inv.investment_type == 'bonds' %}📜{% elif inv.investment_type == 'money_market' %}💹{% elif inv.investment_type == 'real_estate' %}🏘️{% elif inv.investment_type == 'unit_trust' %}📊{% else %}🔮{% endif %}
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:15px">{{ inv.name }}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">{{ inv.get_investment_type_display }} · Since {{ inv.date_invested|date:"M Y" }}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700;font-size:16px;color:var(--lilac-dark)">{{ profile.currency }} {{ inv.current_value|floatformat:0|intcomma }}</div>
+        <div class="inv-gain {% if inv.gain_loss >= 0 %}positive{% else %}negative{% endif %}">
+          {% if inv.gain_loss >= 0 %}▲{% else %}▼{% endif %}
+          {{ profile.currency }} {{ inv.gain_loss|floatformat:0|intcomma }} ({{ inv.gain_loss_percent }}%)
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-left:8px">
+        <a href="{% url 'investment_edit' inv.pk %}" class="btn btn-outline btn-sm">✏️</a>
+        <form method="post" action="{% url 'investment_delete' inv.pk %}" id="del-inv-{{ inv.pk }}" style="display:inline">
+          {% csrf_token %}
+          <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-inv-{{ inv.pk }}', '{{ inv.name }}')">🗑️</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📈</div>
+    <div class="empty-title">No investments tracked yet</div>
+    <div class="empty-text">Add stocks, crypto, SACCO, bonds and more</div>
+    <a href="{% url 'investment_add' %}" class="btn btn-primary" style="margin-top:16px">+ Add Investment</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const typeData = {{ type_data|safe }};
+if (typeData.length) {
+  const COLORS = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D','#9B72C8'];
+  new Chart(document.getElementById('allocChart'), {
+    type: 'doughnut',
+    data: {
+      labels: typeData.map(d => d.type),
+      datasets: [{ data: typeData.map(d => d.value), backgroundColor: COLORS, borderWidth: 3, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: { size: 11 } } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}
