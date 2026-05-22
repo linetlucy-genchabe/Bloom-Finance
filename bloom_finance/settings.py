@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-bloom-change-me-please-2024')
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.railway.app', cast=Csv())
+ALLOWED_HOSTS += ['healthcheck.railway.app', '.railway.app']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
