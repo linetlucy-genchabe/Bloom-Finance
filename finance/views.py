@@ -20,9 +20,11 @@ from .models import (
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_profile():
-    profile, _ = UserProfile.objects.get_or_create(pk=1)
+    """Always return the single user profile, creating it only if none exists."""
+    profile = UserProfile.objects.first()
+    if not profile:
+        profile = UserProfile.objects.create()
     return profile
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # AUTH — PIN login, setup, unlock, lock
@@ -36,9 +38,11 @@ def pin_login(request):
     expired = request.session.pop('session_expired', False)
 
     if request.method == 'POST':
-        if profile.check_pin(request.POST.get('pin', '')):
+        entered_pin = request.POST.get('pin', '').strip()
+        if profile.check_pin(entered_pin):
             request.session[settings.PIN_SESSION_KEY] = True
             request.session['pin_auth_time'] = time.time()
+            request.session.modified = True
             return redirect('dashboard')
         messages.error(request, 'Incorrect PIN. Try again.')
 
@@ -51,28 +55,39 @@ def setup(request):
         return redirect('pin_login')
 
     if request.method == 'POST':
-        pin = request.POST.get('pin', '')
-        if len(pin) < 4 or not pin.isdigit():
+        pin         = request.POST.get('pin', '').strip()
+        pin_confirm = request.POST.get('pin_confirm', '').strip()
+
+        if not pin.isdigit() or len(pin) < 4:
             messages.error(request, 'PIN must be at least 4 digits.')
-        elif pin != request.POST.get('pin_confirm', ''):
+        elif pin != pin_confirm:
             messages.error(request, 'PINs do not match.')
         else:
-            profile.display_name = request.POST.get('display_name', 'Friend').strip()
+            profile.display_name = request.POST.get('display_name', 'Friend').strip() or 'Friend'
             profile.avatar_emoji = request.POST.get('avatar', '🌸')
             profile.currency     = request.POST.get('currency', 'KES')
             profile.set_pin(pin)
+
             phrase = request.POST.get('passphrase', '').strip()
             if phrase:
                 profile.set_passphrase(phrase)
+
             profile.save()
+
+            # Verify PIN actually saved to DB before creating session
+            fresh = UserProfile.objects.get(pk=profile.pk)
+            if not fresh.check_pin(pin):
+                messages.error(request, 'Something went wrong saving your PIN. Please try again.')
+                return render(request, 'setup.html', {'profile': profile})
+
             request.session[settings.PIN_SESSION_KEY] = True
             request.session['pin_auth_time'] = time.time()
+            request.session.modified = True
             request.session.pop('setup_mode', None)
             messages.success(request, f'Welcome to Bloom Finance, {profile.display_name}! 🌸')
             return redirect('dashboard')
 
     return render(request, 'setup.html', {'profile': profile})
-
 
 def unlock(request):
     profile = get_profile()
