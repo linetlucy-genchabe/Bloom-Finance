@@ -8,6 +8,10 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-bloom-change-me-pleas
 DEBUG = config('DEBUG', default=True, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.railway.app', cast=Csv())
 ALLOWED_HOSTS += ['healthcheck.railway.app', '.railway.app']
+CSRF_TRUSTED_ORIGINS = [
+    'https://bloom-finance.up.railway.app',
+    'https://*.railway.app',
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -83,9 +87,10 @@ DEFAULT_CURRENCY = config('DEFAULT_CURRENCY', default='KES')
 
 if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
-    SECURE_SSL_REDIRECT = False  # Railway handles HTTPS at the edge
+    SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'Lax'
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
