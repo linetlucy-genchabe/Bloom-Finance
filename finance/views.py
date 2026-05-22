@@ -521,3 +521,8 @@ def goal_delete(request, pk):
         goal.delete()
         messages.success(request, 'Goal removed.')
     return redirect('goals')
+
+# ── PWA ───────────────────────────────────────────────────────────────────────
+
+def offline(request):
+    return render(request, 'offline.html')

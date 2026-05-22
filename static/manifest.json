@@ -1,0 +1,53 @@
+{
+  "name": "Bloom Finance",
+  "short_name": "Bloom",
+  "description": "Your personal finance tracker — expenses, savings, investments, goals.",
+  "start_url": "/dashboard/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FBF8FF",
+  "theme_color": "#9B72C8",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/static/images/icons/icon-72x72.svg",   "sizes": "72x72",   "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-96x96.svg",   "sizes": "96x96",   "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-128x128.svg", "sizes": "128x128", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-144x144.svg", "sizes": "144x144", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-152x152.svg", "sizes": "152x152", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-192x192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-384x384.svg", "sizes": "384x384", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/images/icons/icon-512x512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/images/icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Bloom Finance Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Expense",
+      "short_name": "Expense",
+      "description": "Quickly log a new expense",
+      "url": "/expenses/add/",
+      "icons": [{ "src": "/static/images/icons/icon-96x96.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Goals",
+      "short_name": "Goals",
+      "description": "View your savings goals",
+      "url": "/goals/",
+      "icons": [{ "src": "/static/images/icons/icon-96x96.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Subscriptions",
+      "short_name": "Subs",
+      "description": "Manage your subscriptions",
+      "url": "/subscriptions/",
+      "icons": [{ "src": "/static/images/icons/icon-96x96.svg", "sizes": "96x96" }]
+    }
+  ]
+}

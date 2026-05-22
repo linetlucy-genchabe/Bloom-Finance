@@ -32,6 +32,8 @@ urlpatterns = [
     path('subscriptions/add/',            views.subscription_add,    name='subscription_add'),
     path('subscriptions/<int:pk>/edit/',  views.subscription_edit,   name='subscription_edit'),
     path('subscriptions/<int:pk>/delete/',views.subscription_delete, name='subscription_delete'),
+    # PWA
+    path('offline/', views.offline, name='offline'),
     # Goals
     path('goals/',                        views.goal_list,       name='goals'),
     path('goals/add/',                    views.goal_add,        name='goal_add'),

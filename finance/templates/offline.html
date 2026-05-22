@@ -1,0 +1,84 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bloom Finance — Offline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#9B72C8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #EDD8FF 0%, #FFE4E8 50%, #F0E8FF 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 40px;
+      text-align: center;
+      max-width: 380px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(139,92,200,.15);
+    }
+    .icon { font-size: 72px; margin-bottom: 16px; }
+    h1 { font-size: 22px; color: #3D2B5E; margin-bottom: 10px; font-weight: 700; }
+    p { color: #7A6B8A; font-size: 14px; line-height: 1.7; margin-bottom: 8px; }
+    .btn {
+      display: inline-block;
+      margin-top: 24px;
+      background: linear-gradient(135deg, #9B72C8, #C8A8E9);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 32px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .divider { border: none; border-top: 1px solid #EDE0FA; margin: 24px 0; }
+    .cached-links { display: flex; flex-direction: column; gap: 8px; }
+    .cached-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border: 1.5px solid #EDE0FA;
+      border-radius: 10px;
+      text-decoration: none;
+      color: #3D2B5E;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all .2s;
+    }
+    .cached-link:hover { background: #F8F0FF; border-color: #C8A8E9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🌸</div>
+    <h1>You're offline</h1>
+    <p>Bloom Finance needs an internet connection to load fresh data.</p>
+    <p>Check your connection and try again, or browse cached pages below.</p>
+    <button class="btn" onclick="location.reload()">🔄 Try Again</button>
+
+    <hr class="divider">
+
+    <div class="cached-links">
+      <a href="/dashboard/" class="cached-link">🏠 Dashboard</a>
+      <a href="/expenses/" class="cached-link">💸 Expenses</a>
+      <a href="/savings/" class="cached-link">🏦 Savings</a>
+      <a href="/goals/" class="cached-link">🎯 Goals</a>
+    </div>
+  </div>
+</body>
+</html>
