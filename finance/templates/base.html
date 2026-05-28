@@ -64,9 +64,7 @@
     <a href="{% url 'income' %}" class="nav-item {% if request.resolver_match.url_name in 'income income_add income_edit income_delete' %}active{% endif %}">
       <span class="nav-icon">💚</span> Income
     </a>
-    <a href="{% url 'expenses' %}" class="nav-item {% if request.resolver_match.url_name in 'expenses expense_add expense_edit expense_delete' %}active{% endif %}">
-      <span class="nav-icon">💸</span> Expenses
-    </a>
+    
     <a href="{% url 'analysis' %}" class="nav-item {% if request.resolver_match.url_name == 'analysis' %}active{% endif %}">
       <span class="nav-icon">📊</span> Analysis
     </a>
