@@ -644,7 +644,7 @@ def monthly_analysis(request):
 
     total_income   = Income.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
     total_expenses = Expense.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
-    net_balance    = float(total_income) - float(total_expenses)
+    net_balance = float(total_income) - float(total_expenses) - float(total_saved)
 
     total_saved = MonthlySaving.objects.filter(year=year, month=month).aggregate(Sum('amount'))['amount__sum'] or 0
 
