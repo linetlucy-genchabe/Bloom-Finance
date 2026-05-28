@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import (
+from .models import (Income,
     UserProfile, Expense, SavingsAccount, SavingsTransaction,
     Investment, Subscription, Goal,
 )
@@ -8,6 +8,12 @@ from .models import (
 class UserProfileAdmin(admin.ModelAdmin):
     list_display = ['display_name', 'currency', 'created_at']
     exclude = ['pin_hash', 'passphrase_hash']
+
+@admin.register(Income)
+class IncomeAdmin(admin.ModelAdmin):
+    list_display = ['title', 'amount', 'income_type', 'date', 'is_recurring']
+    list_filter  = ['income_type', 'date']
+    search_fields = ['title', 'notes']
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
