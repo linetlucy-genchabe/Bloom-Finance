@@ -29,6 +29,7 @@ urlpatterns = [
     path('savings/<int:pk>/edit/',            views.savings_edit,           name='savings_edit'),
     path('savings/<int:pk>/update-balance/',  views.savings_update_balance, name='savings_update_balance'),
     path('savings/<int:pk>/delete/',          views.savings_delete,         name='savings_delete'),
+    path('savings/<int:pk>/clear-history/',   views.savings_clear_history,  name='savings_clear_history'),
     # Investments
     path('investments/',                  views.investment_list,    name='investments'),
     path('investments/add/',              views.investment_add,     name='investment_add'),

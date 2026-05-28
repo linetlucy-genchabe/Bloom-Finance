@@ -798,3 +798,11 @@ def expense_delete(request, pk):
         exp.delete()
         messages.success(request, 'Expense deleted.')
     return redirect('expenses')
+
+
+def savings_clear_history(request, pk):
+    acc = get_object_or_404(SavingsAccount, pk=pk)
+    if request.method == 'POST':
+        acc.history.all().delete()
+        messages.success(request, 'History cleared — you can now log from January. 🌱')
+    return redirect('savings_detail', pk=pk)

@@ -93,7 +93,13 @@
 
   <!-- Right: History -->
   <div class="card">
-    <div class="card-title" style="margin-bottom:16px">📈 Balance & Savings History</div>
+    <div class="card-header">
+      <div class="card-title">📈 Balance & Savings History</div>
+      <form method="post" action="{% url 'savings_clear_history' account.pk %}" style="display:inline" id="clear-history-form">
+        {% csrf_token %}
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('clear-history-form', 'all history for this account')">🗑️ Clear All</button>
+      </form>
+    </div>
     {% if history %}
     <canvas id="historyChart" height="200"></canvas>
     <div style="margin-top:20px;overflow-x:auto">
