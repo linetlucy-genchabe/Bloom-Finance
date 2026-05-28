@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}{{ month_label }} Analysis — Bloom Finance{% endblock %}
+{% block page_title %}📊 Monthly Analysis{% endblock %}
+
+{% block content %}
+<!-- Month Picker -->
+<div class="card" style="margin-bottom:24px;padding:16px 24px">
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <a href="{% url 'analysis' %}?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-outline btn-sm">← Prev</a>
+    <form method="get" style="display:flex;align-items:center;gap:10px;flex:1">
+      <select name="month" class="form-control" style="width:auto" onchange="this.form.submit()">
+        {% for opt in month_options %}
+        <option value="{{ opt.month }}" data-year="{{ opt.year }}" {% if opt.selected %}selected{% endif %}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="year" id="year-input" value="{{ year }}">
+    </form>
+    <a href="{% url 'analysis' %}?year={{ next_year }}&month={{ next_month }}" class="btn btn-outline btn-sm">Next →</a>
+    <h2 style="font-size:18px;font-weight:700;color:var(--lilac-dark);margin:0">{{ month_label }}</h2>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="stats-grid" style="margin-bottom:24px">
+  <div class="stat-card green">
+    <div class="stat-icon">💚</div>
+    <div class="stat-label">Total Income</div>
+    <div class="stat-value">{{ profile.currency }} {{ total_income|floatformat:0|intcomma }}</div>
+  </div>
+  <div class="stat-card pink">
+    <div class="stat-icon">💸</div>
+    <div class="stat-label">Total Expenses</div>
+    <div class="stat-value">{{ profile.currency }} {{ total_expenses|floatformat:0|intcomma }}</div>
+  </div>
+  <div class="stat-card {% if net_balance >= 0 %}green{% else %}pink{% endif %}">
+    <div class="stat-icon">{% if net_balance >= 0 %}📈{% else %}📉{% endif %}</div>
+    <div class="stat-label">Net Balance</div>
+    <div class="stat-value" style="color:{% if net_balance >= 0 %}var(--success){% else %}var(--danger){% endif %}">
+      {% if net_balance >= 0 %}+{% endif %}{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }}
+    </div>
+  </div>
+  <div class="stat-card lilac">
+    <div class="stat-icon">🏦</div>
+    <div class="stat-label">Amount Saved</div>
+    <div class="stat-value">{{ profile.currency }} {{ total_saved|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">Deposits this month</div>
+  </div>
+  <div class="stat-card gold">
+    <div class="stat-icon">📱</div>
+    <div class="stat-label">Subscriptions</div>
+    <div class="stat-value">{{ profile.currency }} {{ monthly_subs|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">Monthly cost</div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-label">Goals Achieved</div>
+    <div class="stat-value">{{ goals_achieved|length }}</div>
+    <div class="stat-sub">{% if goals_achieved %}{{ goals_achieved.0.name }}{% else %}Keep going! 💪{% endif %}</div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">📅 Daily Spending — {{ month_label }}</div>
+    <canvas id="dailyChart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">🍕 Spending by Category</div>
+    {% if cat_breakdown %}
+    <canvas id="catChart" height="220"></canvas>
+    {% else %}
+    <div class="empty-state" style="padding:30px"><div class="empty-icon" style="font-size:40px">📊</div><div style="font-size:13px">No expenses this month</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Category Breakdown Table -->
+{% if cat_breakdown %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:16px">💸 Spending Breakdown</div>
+  {% for cat in cat_breakdown %}
+  <div style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-weight:600;font-size:14px">{{ cat.label }}</span>
+      <div style="text-align:right">
+        <span style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ cat.amount|floatformat:0|intcomma }}</span>
+        <span style="font-size:11px;color:var(--text-light);margin-left:8px">{{ cat.percent }}%</span>
+      </div>
+    </div>
+    <div class="progress-bar" style="height:7px">
+      <div class="progress-fill pink" style="width:{{ cat.percent }}%"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Income Breakdown -->
+{% if income_breakdown %}
+<div class="card" style="margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:16px">💼 Income Breakdown</div>
+  <div class="table-container">
+    <table>
+      <thead><tr><th>Source</th><th>Amount</th></tr></thead>
+      <tbody>
+        {% for inc in income_breakdown %}
+        <tr>
+          <td><span class="badge badge-success">{{ inc.label }}</span></td>
+          <td style="font-weight:700;color:var(--success)">{{ profile.currency }} {{ inc.amount|floatformat:0|intcomma }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Goals Achieved -->
+{% if goals_achieved %}
+<div class="card">
+  <div class="card-title" style="margin-bottom:16px">🎉 Goals Achieved This Month</div>
+  <div class="goal-grid">
+    {% for goal in goals_achieved %}
+    <div class="goal-card" style="border:2px solid var(--success);background:var(--success-bg)">
+      <div class="goal-emoji">{{ goal.emoji }}</div>
+      <div class="goal-name" style="color:#2E7D52">🎉 {{ goal.name }}</div>
+      <div style="font-size:13px;color:var(--success);font-weight:600;margin-top:8px">{{ profile.currency }} {{ goal.saved_amount|floatformat:0|intcomma }} achieved!</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const dailyData = {{ daily_data|safe }};
+const catData   = {{ cat_chart_data|safe }};
+const currency  = "{{ profile.currency }}";
+const COLORS    = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D','#9B72C8','#7EC8A0','#F4A87B','#C8E8A8'];
+
+// Daily spending line chart
+new Chart(document.getElementById('dailyChart'), {
+  type: 'line',
+  data: {
+    labels: dailyData.map(d => d.day),
+    datasets: [{
+      label: 'Daily Spending',
+      data: dailyData.map(d => d.amount),
+      borderColor: '#9B72C8',
+      backgroundColor: 'rgba(200,168,233,0.15)',
+      borderWidth: 2,
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: '#9B72C8',
+      pointRadius: 3,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
+      x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }
+    }
+  }
+});
+
+// Category donut
+if (catData.length) {
+  new Chart(document.getElementById('catChart'), {
+    type: 'doughnut',
+    data: {
+      labels: catData.map(d => d.label),
+      datasets: [{ data: catData.map(d => d.amount), backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, cutout: '60%',
+      plugins: {
+        legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ` ${currency} ${ctx.parsed.toLocaleString()}` } }
+      }
+    }
+  });
+}
+
+// Fix month picker year sync
+document.querySelector('select[name="month"]').addEventListener('change', function() {
+  const selected = this.options[this.selectedIndex];
+  document.getElementById('year-input').value = selected.dataset.year;
+});
+</script>
+{% endblock %}
