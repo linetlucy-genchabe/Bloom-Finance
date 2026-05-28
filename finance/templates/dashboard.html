@@ -3,72 +3,143 @@
 {% block title %}Dashboard — Bloom Finance{% endblock %}
 {% block page_title %}🏠 Dashboard{% endblock %}
 
+{% block extra_head %}
+<style>
+.period-switcher {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--off-white); border-radius: 30px;
+  padding: 4px; border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.period-btn {
+  padding: 5px 14px; border-radius: 20px; border: none;
+  font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .2s; background: transparent;
+  color: var(--text-secondary); text-decoration: none; display: inline-block;
+}
+.period-btn.active { background: white; color: var(--lilac-dark); font-weight: 700; box-shadow: 0 2px 8px rgba(155,114,200,.15); }
+.period-btn:hover:not(.active) { color: var(--lilac-dark); }
+.period-nav { display: flex; align-items: center; gap: 4px; }
+.period-nav a { padding: 4px 10px; border-radius: 20px; color: var(--text-secondary); text-decoration: none; font-size: 16px; transition: all .2s; }
+.period-nav a:hover { background: var(--lilac-light); color: var(--lilac-dark); }
+.period-label { font-weight: 700; font-size: 15px; color: var(--text-primary); padding: 0 6px; white-space: nowrap; }
+</style>
+{% endblock %}
+
 {% block content %}
+
 <!-- Quote -->
-<div class="quote-card">
+<div class="quote-card" style="margin-bottom:20px">
   <div class="quote-text">"{{ quote }}"</div>
   <div class="quote-author">— {{ quote_author }}</div>
 </div>
 
-<!-- Stat Cards -->
-<div class="stats-grid">
-  <div class="stat-card lilac">
+<!-- Sleek Period Switcher -->
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+
+  <!-- Month navigation -->
+  {% if view_mode == 'month' %}
+  <div class="period-nav">
+    <a href="?view=month&year={{ prev_year }}&month={{ prev_month }}">‹</a>
+    <span class="period-label">{{ period_label }}</span>
+    <a href="?view=month&year={{ next_year }}&month={{ next_month }}">›</a>
+  </div>
+  {% else %}
+  <div class="period-nav">
+    <a href="?view=year&year={{ sel_year|add:'-1' }}">‹</a>
+    <span class="period-label">{{ period_label }}</span>
+    <a href="?view=year&year={{ sel_year|add:'1' }}">›</a>
+  </div>
+  {% endif %}
+
+  <!-- View mode + year switcher -->
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="period-switcher">
+      <a href="?view=month&year={{ sel_year }}&month={{ sel_month }}" class="period-btn {% if view_mode == 'month' %}active{% endif %}">Monthly</a>
+      <a href="?view=year&year={{ sel_year }}" class="period-btn {% if view_mode == 'year' %}active{% endif %}">Yearly</a>
+    </div>
+    <select onchange="window.location='?view={{ view_mode }}&year='+this.value+'{% if view_mode == 'month' %}&month={{ sel_month }}{% endif %}'"
+      style="padding:6px 12px;border-radius:20px;border:1px solid var(--border);font-family:'Poppins',sans-serif;font-size:13px;background:white;color:var(--text-primary);cursor:pointer">
+      {% for y in years %}
+      <option value="{{ y }}" {% if y == sel_year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<!-- 4 Stat Cards: Income · Spent · Saved · Debt -->
+<div class="stats-grid" style="margin-bottom:20px">
+  <div class="stat-card green">
     <div class="stat-icon">💚</div>
-    <div class="stat-label">Income This Month</div>
+    <div class="stat-label">Income</div>
     <div class="stat-value">{{ profile.currency }} {{ month_income|floatformat:0|intcomma }}</div>
-    <div class="stat-sub">{{ today|date:"F Y" }}</div>
+    <div class="stat-sub">{{ period_label }}</div>
   </div>
   <div class="stat-card pink">
     <div class="stat-icon">💸</div>
-    <div class="stat-label">Spent This Month</div>
+    <div class="stat-label">Spent</div>
     <div class="stat-value">{{ profile.currency }} {{ month_expenses|floatformat:0|intcomma }}</div>
     <div class="stat-sub">
-      {% if net_balance >= 0 %}<span style="color:var(--success)">+{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} saved</span>
+      {% if net_balance >= 0 %}<span style="color:var(--success)">+{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} surplus</span>
       {% else %}<span style="color:var(--danger)">{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} over</span>{% endif %}
     </div>
   </div>
-  <div class="stat-card green">
+  <div class="stat-card lilac">
     <div class="stat-icon">🏦</div>
-    <div class="stat-label">Total Savings</div>
+    <div class="stat-label">Saved</div>
     <div class="stat-value">{{ profile.currency }} {{ total_savings|floatformat:0|intcomma }}</div>
-    <div class="stat-sub">Net worth: {{ profile.currency }} {{ net_worth|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">{{ period_label }}</div>
   </div>
   <div class="stat-card gold">
-    <div class="stat-icon">📱</div>
-    <div class="stat-label">Monthly Subscriptions</div>
-    <div class="stat-value">{{ profile.currency }} {{ monthly_subs|floatformat:0|intcomma }}</div>
-    <div class="stat-sub">{{ subs_count }} active subscription{{ subs_count|pluralize }}</div>
+    <div class="stat-icon">💳</div>
+    <div class="stat-label">Debt Paid</div>
+    <div class="stat-value">{{ profile.currency }} {{ debt_paid|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">Outstanding: {{ profile.currency }} {{ total_debt|floatformat:0|intcomma }}</div>
   </div>
 </div>
+
+{% if view_mode == 'year' %}
+<!-- Year view: stacked bar chart -->
+<div class="card" style="margin-bottom:20px">
+  <div class="card-title" style="margin-bottom:16px">📊 {{ sel_year }} Monthly Summary</div>
+  <canvas id="yearChart" height="160"></canvas>
+</div>
+{% endif %}
 
 <!-- Charts Row -->
-<div class="grid-2">
+<div class="grid-2" style="margin-bottom:20px">
   <div class="card">
     <div class="card-header">
-      <div class="card-title">📅 This Week's Spending</div>
-      <a href="{% url 'analysis' %}" class="btn btn-outline btn-sm">Monthly Analysis</a>
+      <div class="card-title">📅 This Week</div>
+      <a href="{% url 'analysis' %}" class="btn btn-outline btn-sm">Analysis</a>
     </div>
-    <canvas id="weeklyChart" height="200"></canvas>
+    <canvas id="weeklyChart" height="180"></canvas>
   </div>
   <div class="card">
     <div class="card-header">
-      <div class="card-title">🍕 Spending by Category</div>
-      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">All Expenses</a>
+      <div class="card-title">🍕 By Category</div>
+      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">All</a>
     </div>
-    <canvas id="catChart" height="200"></canvas>
+    {% if cat_data %}
+    <canvas id="catChart" height="180"></canvas>
+    {% else %}
+    <div class="empty-state" style="padding:20px"><div style="font-size:36px">📊</div><div style="font-size:13px;color:var(--text-secondary);margin-top:6px">No spending data</div></div>
+    {% endif %}
   </div>
 </div>
 
-<!-- Goals + Subscriptions Row -->
-<div class="grid-2">
+<!-- Goals + Debts + Renewals -->
+<div class="grid-2" style="margin-bottom:20px">
+
+  <!-- Goals -->
   <div class="card">
     <div class="card-header">
       <div class="card-title">🎯 Active Goals</div>
-      <a href="{% url 'goals' %}" class="btn btn-outline btn-sm">All Goals</a>
+      <a href="{% url 'goals' %}" class="btn btn-outline btn-sm">All</a>
     </div>
     {% if active_goals %}
       {% for goal in active_goals %}
-      <div style="margin-bottom:16px">
+      <div style="margin-bottom:14px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:600;font-size:14px">{{ goal.emoji }} {{ goal.name }}</span>
           <span style="font-size:12px;color:var(--text-secondary)">{{ goal.progress_percent }}%</span>
@@ -76,131 +147,172 @@
         <div class="progress-bar">
           <div class="progress-fill {% if goal.progress_percent >= 100 %}green{% endif %}" style="width:{{ goal.progress_percent }}%"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-top:3px">
-          <span>{{ profile.currency }} {{ goal.saved_amount|floatformat:0|intcomma }} saved</span>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-top:2px">
+          <span>{{ profile.currency }} {{ goal.saved_amount|floatformat:0|intcomma }}</span>
           <span>{{ profile.currency }} {{ goal.remaining|floatformat:0|intcomma }} to go</span>
         </div>
       </div>
       {% endfor %}
     {% else %}
-      <div class="empty-state" style="padding:20px">
-        <div style="font-size:40px;margin-bottom:8px">🎯</div>
-        <div style="font-size:14px;color:var(--text-secondary)">No active goals yet</div>
-        <a href="{% url 'goal_add' %}" class="btn btn-primary btn-sm" style="margin-top:10px">Add a Goal</a>
+      <div class="empty-state" style="padding:16px"><div style="font-size:36px">🎯</div><div style="font-size:13px;color:var(--text-secondary);margin-top:6px">No active goals</div><a href="{% url 'goal_add' %}" class="btn btn-primary btn-sm" style="margin-top:8px">Add Goal</a></div>
+    {% endif %}
+  </div>
+
+  <!-- Active Debts -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💳 Active Debts</div>
+      <a href="{% url 'debt' %}" class="btn btn-outline btn-sm">All</a>
+    </div>
+    {% if active_debts %}
+      {% for debt in active_debts|slice:":3" %}
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:22px;width:36px;height:36px;background:var(--pink-light);border-radius:8px;display:flex;align-items:center;justify-content:center">{{ debt.emoji }}</div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px">{{ debt.name }}</div>
+          <div class="progress-bar" style="margin:4px 0;height:6px">
+            <div class="progress-fill pink" style="width:{{ debt.progress_percent }}%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-light)">{{ debt.progress_percent }}% paid · {{ profile.currency }} {{ debt.remaining_balance|floatformat:0|intcomma }} left</div>
+        </div>
       </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:16px"><div style="font-size:36px">🎉</div><div style="font-size:13px;color:var(--text-secondary);margin-top:6px">No active debts!</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Recent Expenses + Upcoming Subs -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💸 Recent Expenses</div>
+      <div style="display:flex;gap:6px">
+        <a href="{% url 'expense_add' %}" class="btn btn-pink btn-sm">+ Add</a>
+        <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">All</a>
+      </div>
+    </div>
+    {% if recent_expenses %}
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Description</th><th>Category</th><th>Amount</th></tr></thead>
+        <tbody>
+          {% for exp in recent_expenses %}
+          <tr>
+            <td><strong>{{ exp.title }}</strong></td>
+            <td><span class="badge badge-lilac">{{ exp.category_label }}</span></td>
+            <td style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ exp.amount|floatformat:0|intcomma }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:16px"><div style="font-size:36px">💸</div><a href="{% url 'expense_add' %}" class="btn btn-primary btn-sm" style="margin-top:8px">Log Expense</a></div>
     {% endif %}
   </div>
 
   <div class="card">
     <div class="card-header">
-      <div class="card-title">📅 Upcoming Renewals</div>
+      <div class="card-title">📱 Upcoming Renewals</div>
       <a href="{% url 'subscriptions' %}" class="btn btn-outline btn-sm">All Subs</a>
     </div>
     {% if upcoming_subs %}
       {% for sub in upcoming_subs %}
       <div class="sub-item" style="padding:10px 14px;margin-bottom:8px">
-        <div class="sub-emoji" style="width:36px;height:36px;font-size:20px">{{ sub.emoji }}</div>
+        <div class="sub-emoji" style="width:34px;height:34px;font-size:18px">{{ sub.emoji }}</div>
         <div class="sub-info">
           <div class="sub-name" style="font-size:14px">{{ sub.name }}</div>
           <div class="sub-meta">
             {% if sub.days_until_renewal == 0 %}<span class="sub-renewal-urgent">Due TODAY</span>
-            {% elif sub.days_until_renewal == 1 %}<span class="sub-renewal-urgent">Due TOMORROW</span>
-            {% elif sub.days_until_renewal <= 3 %}<span class="sub-renewal-urgent">{{ sub.days_until_renewal }} days left</span>
-            {% else %}<span class="sub-renewal-soon">{{ sub.days_until_renewal }} days left</span>{% endif %}
+            {% elif sub.days_until_renewal == 1 %}<span class="sub-renewal-urgent">Tomorrow</span>
+            {% elif sub.days_until_renewal <= 3 %}<span class="sub-renewal-urgent">{{ sub.days_until_renewal }} days</span>
+            {% else %}<span class="sub-renewal-soon">{{ sub.days_until_renewal }} days</span>{% endif %}
           </div>
         </div>
         <div class="sub-amount" style="font-size:14px">{{ profile.currency }} {{ sub.amount|floatformat:0 }}</div>
       </div>
       {% endfor %}
     {% else %}
-      <div class="empty-state" style="padding:20px">
-        <div style="font-size:40px;margin-bottom:8px">✅</div>
-        <div style="font-size:14px;color:var(--text-secondary)">No renewals in next 7 days</div>
-      </div>
+      <div class="empty-state" style="padding:16px"><div style="font-size:36px">✅</div><div style="font-size:13px;color:var(--text-secondary);margin-top:6px">No renewals in 7 days</div></div>
     {% endif %}
   </div>
 </div>
 
-<!-- Recent Expenses -->
-<div class="card">
-  <div class="card-header">
-    <div class="card-title">💸 Recent Expenses</div>
-    <div style="display:flex;gap:8px">
-      <a href="{% url 'expense_add' %}" class="btn btn-pink btn-sm">+ Add</a>
-      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">View All</a>
-    </div>
-  </div>
-  {% if recent_expenses %}
-  <div class="table-container">
-    <table>
-      <thead><tr><th>Description</th><th>Category</th><th>Date</th><th>Amount</th></tr></thead>
-      <tbody>
-        {% for exp in recent_expenses %}
-        <tr>
-          <td><strong>{{ exp.title }}</strong>{% if exp.notes %}<br><small style="color:var(--text-light)">{{ exp.notes|truncatechars:40 }}</small>{% endif %}</td>
-          <td><span class="badge badge-lilac">{{ exp.category_label }}</span></td>
-          <td style="color:var(--text-secondary)">{{ exp.date|date:"M d" }}</td>
-          <td style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ exp.amount|floatformat:0|intcomma }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="empty-state"><div class="empty-icon">💸</div><div class="empty-title">No expenses yet</div><a href="{% url 'expense_add' %}" class="btn btn-primary btn-sm" style="margin-top:10px">Log First Expense</a></div>
-  {% endif %}
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 const weeklyData = {{ weekly_data|safe }};
 const catData    = {{ cat_data|safe }};
+const yearData   = {{ monthly_breakdown|safe }};
 const currency   = "{{ profile.currency }}";
-const COLORS     = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D','#9B72C8','#7EC8A0','#F4A87B','#C8E8A8'];
+const COLORS     = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D','#9B72C8','#7EC8A0'];
 
-// Weekly Mon–Sun chart
+// Weekly chart
 new Chart(document.getElementById('weeklyChart'), {
   type: 'bar',
   data: {
-    labels: weeklyData.map(d => d.is_today ? d.day + ' ★' : d.day),
+    labels: weeklyData.map(d => d.is_today ? d.day+'★' : d.day),
     datasets: [{
       data: weeklyData.map(d => d.amount),
       backgroundColor: weeklyData.map(d => d.is_today ? '#9B72C8' : 'rgba(200,168,233,0.5)'),
       borderColor: weeklyData.map(d => d.is_today ? '#7B4FAB' : '#C8A8E9'),
-      borderWidth: 2,
-      borderRadius: 8,
+      borderWidth: 2, borderRadius: 8,
     }]
   },
   options: {
-    responsive: true,
-    plugins: { legend: { display: false } },
+    responsive: true, plugins: { legend: { display: false } },
     scales: {
-      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
+      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency+' '+v.toLocaleString() } },
       x: { grid: { display: false } }
     }
   }
 });
 
 // Category donut
-if (catData.length) {
-  new Chart(document.getElementById('catChart'), {
-    type: 'doughnut',
+{% if cat_data %}
+new Chart(document.getElementById('catChart'), {
+  type: 'doughnut',
+  data: {
+    labels: catData.map(d => d.category),
+    datasets: [{ data: catData.map(d => d.amount), backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff' }]
+  },
+  options: {
+    responsive: true, cutout: '65%',
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: { size: 11 } } },
+      tooltip: { callbacks: { label: ctx => ` ${currency} ${ctx.parsed.toLocaleString()}` } }
+    }
+  }
+});
+{% endif %}
+
+// Year stacked bar chart
+{% if view_mode == 'year' %}
+if (yearData.length) {
+  new Chart(document.getElementById('yearChart'), {
+    type: 'bar',
     data: {
-      labels: catData.map(d => d.category),
-      datasets: [{ data: catData.map(d => d.amount), backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff' }]
+      labels: yearData.map(d => d.month),
+      datasets: [
+        { label: 'Income',   data: yearData.map(d => d.income),   backgroundColor: 'rgba(126,200,160,0.8)', borderRadius: 4 },
+        { label: 'Expenses', data: yearData.map(d => d.expenses), backgroundColor: 'rgba(247,197,204,0.8)', borderRadius: 4 },
+        { label: 'Saved',    data: yearData.map(d => d.savings),  backgroundColor: 'rgba(200,168,233,0.8)', borderRadius: 4 },
+        { label: 'Debt',     data: yearData.map(d => d.debt),     backgroundColor: 'rgba(244,201,123,0.8)', borderRadius: 4 },
+      ]
     },
     options: {
-      responsive: true, cutout: '65%',
-      plugins: {
-        legend: { position: 'right', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ` ${currency} ${ctx.parsed.toLocaleString()}` } }
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, padding: 12 } } },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency+' '+v.toLocaleString() } },
+        x: { grid: { display: false } }
       }
     }
   });
-} else {
-  document.getElementById('catChart').parentElement.innerHTML += '<div class="empty-state" style="padding:20px"><div style="font-size:40px">📊</div><div style="font-size:13px;color:var(--text-secondary);margin-top:8px">No spending this month yet</div></div>';
-  document.getElementById('catChart').style.display = 'none';
 }
+{% endif %}
 </script>
 {% endblock %}
