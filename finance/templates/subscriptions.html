@@ -18,8 +18,35 @@
 {% if upcoming %}
 <div class="alert alert-warning" style="margin-bottom:20px">
   🔔 <strong>Upcoming renewals:</strong>
-  {% for sub in upcoming %}
-    {{ sub.emoji }} {{ sub.name }} ({{ sub.days_until_renewal }} day{{ sub.days_until_renewal|pluralize }}){% if not forloop.last %}, {% endif %}
+  {% for sub in upcoming %}{{ sub.emoji }} {{ sub.name }} ({{ sub.days_until_renewal }} day{{ sub.days_until_renewal|pluralize }}){% if not forloop.last %}, {% endif %}{% endfor %}
+</div>
+{% endif %}
+
+<!-- Suggestions from recurring expenses -->
+{% if suggestions %}
+<div class="card" style="margin-bottom:20px;border:2px solid var(--lilac-light)">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <span style="font-size:20px">💡</span>
+    <div>
+      <div style="font-weight:600;font-size:15px">Suggested from recurring expenses</div>
+      <div style="font-size:12px;color:var(--text-secondary)">These expenses are marked as recurring — add them as subscriptions?</div>
+    </div>
+  </div>
+  {% for sug in suggestions %}
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:14px">{{ sug.title }}</div>
+      <div style="font-size:12px;color:var(--text-secondary)">{{ profile.currency }} {{ sug.amount|floatformat:0|intcomma }} · Recurring expense</div>
+    </div>
+    <form method="post" action="{% url 'subscription_add_from_expense' %}" style="display:flex;align-items:center;gap:8px">
+      {% csrf_token %}
+      <input type="hidden" name="name" value="{{ sug.title }}">
+      <input type="hidden" name="amount" value="{{ sug.amount }}">
+      <input type="hidden" name="category" value="{{ sug.category }}">
+      <input type="date" name="next_billing_date" class="form-control" style="width:150px;padding:6px 10px;font-size:12px" required>
+      <button type="submit" class="btn btn-primary btn-sm">+ Add</button>
+    </form>
+  </div>
   {% endfor %}
 </div>
 {% endif %}
@@ -37,10 +64,10 @@
       </div>
       <div class="sub-meta" style="margin-top:2px">
         Next: {{ sub.next_billing_date|date:"M d, Y" }} ·
-        <span class="sub-renewal-{% if sub.renewal_status == 'urgent' %}urgent{% elif sub.renewal_status == 'soon' %}soon{% else %}ok{% endif %}">
+        <span class="sub-renewal-{% if sub.renewal_status == 'urgent' or sub.renewal_status == 'overdue' %}urgent{% elif sub.renewal_status == 'soon' %}soon{% else %}ok{% endif %}">
           {% if sub.days_until_renewal == 0 %}Due TODAY
           {% elif sub.days_until_renewal == 1 %}Tomorrow
-          {% elif sub.days_until_renewal < 0 %}Overdue by {{ sub.days_until_renewal|stringformat:'s'|slice:'1:' }} days
+          {% elif sub.days_until_renewal < 0 %}Overdue
           {% else %}{{ sub.days_until_renewal }} days{% endif %}
         </span>
       </div>
