@@ -80,8 +80,8 @@
     <div class="stat-label">Spent</div>
     <div class="stat-value">{{ profile.currency }} {{ month_expenses|floatformat:0|intcomma }}</div>
     <div class="stat-sub">
-      {% if net_balance >= 0 %}<span style="color:var(--success)">+{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} surplus</span>
-      {% else %}<span style="color:var(--danger)">{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} over</span>{% endif %}
+      {% if net_balance >= 0 %}<span style="color:var(--success)">+{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} remaining</span>
+      {% else %}<span style="color:var(--danger)">{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} deficit</span>{% endif %}
     </div>
   </div>
   <div class="stat-card lilac">

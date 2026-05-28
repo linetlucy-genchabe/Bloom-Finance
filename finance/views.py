@@ -169,7 +169,7 @@ def dashboard(request):
         period_label   = date(sel_year, sel_month, 1).strftime('%B %Y')
         monthly_breakdown = []
 
-    net_balance = float(month_income) - float(month_expenses)
+    net_balance = float(month_income) - float(month_expenses) - float(total_savings)
 
     # Always-present data
     total_invest_val = Investment.objects.filter(is_active=True).aggregate(Sum('current_value'))['current_value__sum'] or 0
