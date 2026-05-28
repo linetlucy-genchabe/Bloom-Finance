@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Income — Bloom Finance{% endblock %}
+{% block page_title %}💚 Income{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700">Income Tracker</h2>
+    <p style="color:var(--text-secondary);font-size:13px">Total: <strong>{{ profile.currency }} {{ total|floatformat:0|intcomma }}</strong></p>
+  </div>
+  <a href="{% url 'income_add' %}" class="btn btn-primary">+ Record Income</a>
+</div>
+
+<!-- Charts -->
+<div class="grid-2" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">📊 Income vs Expenses (6 months)</div>
+    <canvas id="comparisonChart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px">💼 Income by Type</div>
+    {% if type_data != '[]' %}
+    <canvas id="typeChart" height="220"></canvas>
+    {% else %}
+    <div class="empty-state" style="padding:30px"><div class="empty-icon" style="font-size:40px">💼</div><div style="font-size:13px">No income recorded yet</div></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="card" style="margin-bottom:20px;padding:16px 24px">
+  <form method="get" class="filter-bar">
+    <input type="text" name="search" class="form-control" placeholder="🔍 Search..." value="{{ search }}">
+    <input type="month" name="month" class="form-control" value="{{ selected_month }}">
+    <button type="submit" class="btn btn-outline">Filter</button>
+    <a href="{% url 'income' %}" class="btn btn-outline">Clear</a>
+  </form>
+</div>
+
+<!-- List -->
+<div class="card">
+  {% if income_list %}
+  <div class="table-container">
+    <table>
+      <thead><tr><th>Description</th><th>Type</th><th>Date</th><th>Amount</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for inc in income_list %}
+        <tr>
+          <td>
+            <strong>{{ inc.title }}</strong>
+            {% if inc.is_recurring %}<span class="badge badge-success" style="margin-left:6px;font-size:10px">🔁 Recurring</span>{% endif %}
+            {% if inc.notes %}<br><small style="color:var(--text-light)">{{ inc.notes|truncatechars:50 }}</small>{% endif %}
+          </td>
+          <td><span class="badge badge-lilac">{{ inc.income_type_label }}</span></td>
+          <td style="color:var(--text-secondary);font-size:13px">{{ inc.date|date:"M d, Y" }}</td>
+          <td style="font-weight:700;color:var(--success)">{{ profile.currency }} {{ inc.amount|floatformat:0|intcomma }}</td>
+          <td>
+            <div style="display:flex;gap:6px">
+              <a href="{% url 'income_edit' inc.pk %}" class="btn btn-outline btn-sm">✏️</a>
+              <form method="post" action="{% url 'income_delete' inc.pk %}" id="del-inc-{{ inc.pk }}" style="display:inline">
+                {% csrf_token %}
+                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-inc-{{ inc.pk }}', '{{ inc.title }}')">🗑️</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">💚</div>
+    <div class="empty-title">No income recorded yet</div>
+    <div class="empty-text">Track your salary, freelance work and field expenses</div>
+    <a href="{% url 'income_add' %}" class="btn btn-primary" style="margin-top:16px">+ Record First Income</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const compData = {{ monthly_comparison|safe }};
+const typeData = {{ type_data|safe }};
+const currency = "{{ profile.currency }}";
+const COLORS   = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D'];
+
+// Income vs Expenses comparison
+new Chart(document.getElementById('comparisonChart'), {
+  type: 'bar',
+  data: {
+    labels: compData.map(d => d.month),
+    datasets: [
+      { label: 'Income', data: compData.map(d => d.income), backgroundColor: 'rgba(126,200,160,0.7)', borderColor: '#7EC8A0', borderWidth: 2, borderRadius: 6 },
+      { label: 'Expenses', data: compData.map(d => d.expenses), backgroundColor: 'rgba(247,197,204,0.7)', borderColor: '#E8929D', borderWidth: 2, borderRadius: 6 },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// Income by type donut
+if (typeData.length) {
+  new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: typeData.map(d => d.type),
+      datasets: [{ data: typeData.map(d => d.amount), backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: { responsive: true, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: { size: 11 } } } } }
+  });
+}
+</script>
+{% endblock %}

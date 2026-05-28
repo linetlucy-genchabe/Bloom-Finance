@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{% if income %}Edit{% else %}Add{% endif %} Income — Bloom Finance{% endblock %}
+{% block page_title %}{% if income %}✏️ Edit Income{% else %}💚 Record Income{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if income %}Edit "{{ income.title }}"{% else %}New Income Entry{% endif %}</div>
+      <a href="{% url 'income' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label">Description *</label>
+        <input type="text" name="title" class="form-control" placeholder="e.g. May Salary, Freelance Project, Field Trip Reimbursement" value="{{ income.title|default:'' }}" required autofocus>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount ({{ profile.currency }}) *</label>
+          <input type="number" name="amount" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ income.amount|default:'' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input type="date" name="date" class="form-control" value="{{ income.date|date:'Y-m-d'|default:today }}" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Income Type</label>
+        <select name="income_type" class="form-control">
+          {% for key, label in income_types %}
+          <option value="{{ key }}" {% if income.income_type == key %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" placeholder="Any additional details...">{{ income.notes|default:'' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" name="is_recurring" {% if income.is_recurring %}checked{% endif %}>
+          🔁 This is recurring monthly income
+        </label>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary">{% if income %}💾 Save Changes{% else %}💚 Record Income{% endif %}</button>
+        <a href="{% url 'income' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
