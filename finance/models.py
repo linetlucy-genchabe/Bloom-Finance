@@ -73,13 +73,14 @@ class Expense(models.Model):
 
 class SavingsAccount(models.Model):
     name          = models.CharField(max_length=200)
-    emoji         = models.CharField(max_length=10, default='💰')
+    bank_name     = models.CharField(max_length=200, blank=True, help_text='e.g. KCB, Equity, NCBA')
+    emoji         = models.CharField(max_length=10, default='🏦')
     description   = models.TextField(blank=True)
     balance       = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    target        = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    interest_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    linked_goal   = models.ForeignKey('Goal', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_accounts')
     is_active     = models.BooleanField(default=True)
     created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -89,27 +90,24 @@ class SavingsAccount(models.Model):
 
     @property
     def progress_percent(self):
-        if self.target > 0:
-            return min(100, round(float(self.balance) / float(self.target) * 100, 1))
+        if self.linked_goal and self.linked_goal.target_amount > 0:
+            return min(100, round(float(self.balance) / float(self.linked_goal.target_amount) * 100, 1))
         return 0
 
 
-SAVINGS_TX_TYPES = [('deposit','Deposit'), ('withdrawal','Withdrawal'), ('interest','Interest')]
-
-
-class SavingsTransaction(models.Model):
-    account          = models.ForeignKey(SavingsAccount, on_delete=models.CASCADE, related_name='transactions')
-    transaction_type = models.CharField(max_length=20, choices=SAVINGS_TX_TYPES, default='deposit')
-    amount           = models.DecimalField(max_digits=12, decimal_places=2)
-    notes            = models.CharField(max_length=300, blank=True)
-    date             = models.DateField(default=timezone.now)
-    created_at       = models.DateTimeField(auto_now_add=True)
+class SavingsBalanceHistory(models.Model):
+    """Records every time the balance is manually updated."""
+    account    = models.ForeignKey(SavingsAccount, on_delete=models.CASCADE, related_name='history')
+    balance    = models.DecimalField(max_digits=12, decimal_places=2)
+    notes      = models.CharField(max_length=300, blank=True)
+    date       = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-date', '-created_at']
 
     def __str__(self):
-        return f'{self.account.name} — {self.transaction_type} — {self.amount}'
+        return f'{self.account.name} — {self.balance} on {self.date}'
 
 
 # ── INVESTMENTS ───────────────────────────────────────────────────────────────
