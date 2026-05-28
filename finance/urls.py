@@ -22,14 +22,10 @@ urlpatterns = [
     path('expenses/add/',             views.expense_add,    name='expense_add'),
     path('expenses/<int:pk>/edit/',   views.expense_edit,   name='expense_edit'),
     path('expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
-    # Savings
-    path('savings/',                          views.savings_list,           name='savings'),
-    path('savings/add/',                      views.savings_add,            name='savings_add'),
-    path('savings/<int:pk>/',                 views.savings_detail,         name='savings_detail'),
-    path('savings/<int:pk>/edit/',            views.savings_edit,           name='savings_edit'),
-    path('savings/<int:pk>/update-balance/',  views.savings_update_balance, name='savings_update_balance'),
-    path('savings/<int:pk>/delete/',          views.savings_delete,         name='savings_delete'),
-    path('savings/<int:pk>/clear-history/',   views.savings_clear_history,  name='savings_clear_history'),
+    # Savings — simple monthly tracker
+    path('savings/',                 views.savings_list,   name='savings'),
+    path('savings/log/',             views.savings_log,    name='savings_log'),
+    path('savings/<int:pk>/delete/', views.savings_delete, name='savings_delete'),
     # Investments
     path('investments/',                  views.investment_list,    name='investments'),
     path('investments/add/',              views.investment_add,     name='investment_add'),
