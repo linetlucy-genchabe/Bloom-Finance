@@ -71,44 +71,32 @@ class Expense(models.Model):
 
 # ── SAVINGS ───────────────────────────────────────────────────────────────────
 
-class SavingsAccount(models.Model):
-    name          = models.CharField(max_length=200)
-    bank_name     = models.CharField(max_length=200, blank=True, help_text='e.g. KCB, Equity, NCBA')
-    emoji         = models.CharField(max_length=10, default='🏦')
-    description   = models.TextField(blank=True)
-    balance       = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    linked_goal   = models.ForeignKey('Goal', on_delete=models.SET_NULL, null=True, blank=True, related_name='savings_accounts')
-    is_active     = models.BooleanField(default=True)
-    created_at    = models.DateTimeField(auto_now_add=True)
-    updated_at    = models.DateTimeField(auto_now=True)
+MONTH_CHOICES = [
+    (1,'January'),(2,'February'),(3,'March'),(4,'April'),
+    (5,'May'),(6,'June'),(7,'July'),(8,'August'),
+    (9,'September'),(10,'October'),(11,'November'),(12,'December'),
+]
+
+
+class MonthlySaving(models.Model):
+    """Simple monthly savings tracker — just enter how much you saved each month."""
+    year         = models.IntegerField(default=2025)
+    month        = models.IntegerField(choices=MONTH_CHOICES, default=1)
+    amount       = models.DecimalField(max_digits=12, decimal_places=2)
+    notes        = models.CharField(max_length=300, blank=True)
+    created_at   = models.DateTimeField(auto_now_add=True)
+    updated_at   = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['-year', '-month']
+        unique_together = [['year', 'month']]
 
     def __str__(self):
-        return self.name
+        return f'{self.get_month_display()} {self.year} — {self.amount}'
 
     @property
-    def progress_percent(self):
-        if self.linked_goal and self.linked_goal.target_amount > 0:
-            return min(100, round(float(self.balance) / float(self.linked_goal.target_amount) * 100, 1))
-        return 0
-
-
-class SavingsBalanceHistory(models.Model):
-    """Records a balance snapshot and how much was saved that period."""
-    account      = models.ForeignKey(SavingsAccount, on_delete=models.CASCADE, related_name='history')
-    balance      = models.DecimalField(max_digits=12, decimal_places=2, help_text='Total balance at this point')
-    amount_saved = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text='Amount saved this month/period')
-    notes        = models.CharField(max_length=300, blank=True)
-    date         = models.DateField(default=timezone.now)
-    created_at   = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-date', '-created_at']
-
-    def __str__(self):
-        return f'{self.account.name} — {self.balance} on {self.date}'
+    def month_label(self):
+        return f'{self.get_month_display()} {self.year}'
 
 
 # ── INVESTMENTS ───────────────────────────────────────────────────────────────
