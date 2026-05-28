@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}{% if debt %}Edit{% else %}Add{% endif %} Debt — Bloom Finance{% endblock %}
+{% block page_title %}{% if debt %}✏️ Edit Debt{% else %}💳 Add Debt{% endif %}{% endblock %}
+
+{% block content %}
+<div class="form-container">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{% if debt %}Edit "{{ debt.name }}"{% else %}Track a New Debt{% endif %}</div>
+      <a href="{% url 'debt' %}" class="btn btn-outline btn-sm">← Back</a>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Debt Name *</label>
+          <input type="text" name="name" class="form-control" placeholder="e.g. KCB Loan, Fuliza, Buy Goods" value="{{ debt.name|default:'' }}" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select name="debt_type" class="form-control">
+            {% for key, label in debt_types %}
+            <option value="{{ key }}" {% if debt.debt_type == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Choose Emoji</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          {% for emoji in "💳🏦📱🛒🤝💵📜💸" %}
+          <button type="button" class="emoji-pick" data-target="emoji-input" style="font-size:22px;background:var(--lilac-light);border:2px solid transparent;border-radius:8px;padding:6px 10px;cursor:pointer">{{ emoji }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="emoji" id="emoji-input" value="{{ debt.emoji|default:'💳' }}">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Lender / Source</label>
+        <input type="text" name="lender" class="form-control" placeholder="e.g. KCB, Equity, John" value="{{ debt.lender|default:'' }}">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Original Amount ({{ profile.currency }}) *</label>
+          <input type="number" name="total_amount" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ debt.total_amount|default:'' }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Remaining Balance ({{ profile.currency }}) *</label>
+          <input type="number" name="remaining_balance" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ debt.remaining_balance|default:'' }}" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Monthly Payment ({{ profile.currency }})</label>
+          <input type="number" name="monthly_payment" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ debt.monthly_payment|default:'0' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Interest Rate (% p.a.)</label>
+          <input type="number" name="interest_rate" class="form-control" step="0.01" min="0" placeholder="0.00" value="{{ debt.interest_rate|default:'0' }}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Due / End Date</label>
+        <input type="date" name="due_date" class="form-control" value="{{ debt.due_date|date:'Y-m-d'|default:'' }}">
+        <div class="form-hint">Final repayment date (optional)</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" placeholder="Any additional details...">{{ debt.notes|default:'' }}</textarea>
+      </div>
+
+      <div style="display:flex;gap:12px">
+        <button type="submit" class="btn btn-primary">{% if debt %}💾 Save Changes{% else %}💳 Add Debt{% endif %}</button>
+        <a href="{% url 'debt' %}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
