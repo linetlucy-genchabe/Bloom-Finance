@@ -1,6 +1,8 @@
 import json
 import time
+import random
 from datetime import date, timedelta
+from calendar import monthrange
 
 from django.conf import settings
 from django.contrib import messages
@@ -8,9 +10,9 @@ from django.db.models import Sum, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import (
-    BILLING_CYCLES, EXPENSE_CATEGORIES, GOAL_PRIORITIES, INVESTMENT_TYPES,
+    BILLING_CYCLES, EXPENSE_CATEGORIES, INCOME_TYPES, INVESTMENT_TYPES,
     PAYMENT_METHODS, SUBSCRIPTION_CATEGORIES,
-    Expense, Goal, Investment, SavingsAccount, SavingsTransaction,
+    Expense, Goal, Income, Investment, SavingsAccount, SavingsTransaction,
     Subscription, UserProfile,
 )
 
@@ -20,14 +22,14 @@ from .models import (
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_profile():
-    """Always return the single user profile, creating it only if none exists."""
     profile = UserProfile.objects.first()
     if not profile:
         profile = UserProfile.objects.create()
     return profile
 
+
 # ─────────────────────────────────────────────────────────────────────────────
-# AUTH — PIN login, setup, unlock, lock
+# AUTH
 # ─────────────────────────────────────────────────────────────────────────────
 
 def pin_login(request):
@@ -67,14 +69,11 @@ def setup(request):
             profile.avatar_emoji = request.POST.get('avatar', '🌸')
             profile.currency     = request.POST.get('currency', 'KES')
             profile.set_pin(pin)
-
             phrase = request.POST.get('passphrase', '').strip()
             if phrase:
                 profile.set_passphrase(phrase)
-
             profile.save()
 
-            # Verify PIN actually saved to DB before creating session
             fresh = UserProfile.objects.get(pk=profile.pk)
             if not fresh.check_pin(pin):
                 messages.error(request, 'Something went wrong saving your PIN. Please try again.')
@@ -89,6 +88,7 @@ def setup(request):
 
     return render(request, 'setup.html', {'profile': profile})
 
+
 def unlock(request):
     profile = get_profile()
     if request.method == 'POST':
@@ -101,15 +101,16 @@ def unlock(request):
 
 def lock(request):
     request.session[settings.PIN_SESSION_KEY] = False
+    request.session.modified = True
     return redirect('pin_login')
 
 
 def profile_settings(request):
     profile = get_profile()
     if request.method == 'POST':
-        profile.display_name  = request.POST.get('display_name', profile.display_name).strip()
-        profile.currency      = request.POST.get('currency', profile.currency)
-        profile.avatar_emoji  = request.POST.get('avatar', profile.avatar_emoji)
+        profile.display_name = request.POST.get('display_name', profile.display_name).strip()
+        profile.currency     = request.POST.get('currency', profile.currency)
+        profile.avatar_emoji = request.POST.get('avatar', profile.avatar_emoji)
         try:
             profile.monthly_budget = float(request.POST.get('monthly_budget', 0))
         except ValueError:
@@ -143,52 +144,288 @@ def dashboard(request):
     month_start = today.replace(day=1)
     profile     = get_profile()
 
-    month_expenses   = Expense.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
-    total_savings    = SavingsAccount.objects.filter(is_active=True).aggregate(Sum('balance'))['balance__sum'] or 0
+    # Expenses this month
+    month_expenses = Expense.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # Income this month
+    month_income = Income.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # Savings
+    total_savings = SavingsAccount.objects.filter(is_active=True).aggregate(Sum('balance'))['balance__sum'] or 0
+
+    # Investments
     total_invest_val = Investment.objects.filter(is_active=True).aggregate(Sum('current_value'))['current_value__sum'] or 0
     total_invested   = Investment.objects.filter(is_active=True).aggregate(Sum('amount_invested'))['amount_invested__sum'] or 0
-    subs             = Subscription.objects.filter(is_active=True)
-    monthly_subs     = sum(s.monthly_cost for s in subs)
-    net_worth        = float(total_savings) + float(total_invest_val)
+
+    # Subscriptions — force evaluation to fix dashboard not updating
+    subs         = list(Subscription.objects.filter(is_active=True))
+    monthly_subs = round(sum(s.monthly_cost for s in subs), 2)
+
+    net_worth    = float(total_savings) + float(total_invest_val)
+    net_balance  = float(month_income) - float(month_expenses)
 
     recent_expenses = Expense.objects.all()[:5]
-    active_goals    = Goal.objects.filter(status='active')[:4]
-    upcoming_subs   = [s for s in subs if 0 <= s.days_until_renewal <= 7]
 
-    # Spending by category this month
+    # Active goals — force evaluation
+    active_goals = list(Goal.objects.filter(status='active').order_by('priority')[:4])
+
+    upcoming_subs = [s for s in subs if 0 <= s.days_until_renewal <= 7]
+
+    # Category spending this month
     cat_data = []
     for key, label in EXPENSE_CATEGORIES:
         amt = Expense.objects.filter(category=key, date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
         if amt:
             cat_data.append({'category': label.split(' ', 1)[-1], 'amount': float(amt)})
 
-    # Last 7 days
+    # Mon–Sun current week spending
+    # Find Monday of current week
+    monday = today - timedelta(days=today.weekday())
     weekly_data = []
-    for i in range(6, -1, -1):
-        d   = today - timedelta(days=i)
+    for i in range(7):
+        d   = monday + timedelta(days=i)
         amt = Expense.objects.filter(date=d).aggregate(Sum('amount'))['amount__sum'] or 0
-        weekly_data.append({'day': d.strftime('%a'), 'amount': float(amt)})
+        weekly_data.append({
+            'day': d.strftime('%a'),
+            'date': d.strftime('%d'),
+            'amount': float(amt),
+            'is_today': d == today,
+        })
 
-    import random
     quotes = [
         ("She believed she could, so she did.", "R.S. Grey"),
         ("A budget is telling your money where to go.", "Dave Ramsey"),
         ("Do not save what is left after spending; spend what is left after saving.", "Warren Buffett"),
         ("Financial freedom is available to those who learn about it.", "Robert Kiyosaki"),
         ("The secret to getting ahead is getting started.", "Mark Twain"),
+        ("Wealth is not about having a lot of money; it's about having a lot of options.", "Chris Rock"),
     ]
     quote, quote_author = random.choice(quotes)
 
     return render(request, 'dashboard.html', {
         'profile': profile, 'today': today,
-        'month_expenses': month_expenses, 'total_savings': total_savings,
-        'total_invest_val': total_invest_val, 'total_invested': total_invested,
-        'monthly_subs': monthly_subs, 'net_worth': net_worth,
-        'recent_expenses': recent_expenses, 'active_goals': active_goals,
+        'month_expenses': month_expenses,
+        'month_income': month_income,
+        'net_balance': net_balance,
+        'total_savings': total_savings,
+        'total_invest_val': total_invest_val,
+        'total_invested': total_invested,
+        'monthly_subs': monthly_subs,
+        'net_worth': net_worth,
+        'recent_expenses': recent_expenses,
+        'active_goals': active_goals,
         'upcoming_subs': upcoming_subs,
+        'subs_count': len(subs),
         'cat_data': json.dumps(cat_data),
         'weekly_data': json.dumps(weekly_data),
         'quote': quote, 'quote_author': quote_author,
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INCOME
+# ─────────────────────────────────────────────────────────────────────────────
+
+def income_list(request):
+    qs     = Income.objects.all()
+    month  = request.GET.get('month', '')
+    search = request.GET.get('search', '')
+
+    if month:
+        y, m = month.split('-')
+        qs = qs.filter(date__year=y, date__month=m)
+    if search:
+        qs = qs.filter(Q(title__icontains=search) | Q(notes__icontains=search))
+
+    total = qs.aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # Income by type for chart
+    type_data = []
+    for key, label in INCOME_TYPES:
+        amt = Income.objects.filter(income_type=key).aggregate(Sum('amount'))['amount__sum'] or 0
+        if amt:
+            type_data.append({'type': label.split(' ', 1)[-1], 'amount': float(amt)})
+
+    # Last 6 months income vs expenses
+    today = date.today()
+    monthly_comparison = []
+    for i in range(5, -1, -1):
+        m = today.month - i
+        y = today.year
+        if m <= 0: m += 12; y -= 1
+        inc = Income.objects.filter(date__year=y, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+        exp = Expense.objects.filter(date__year=y, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+        monthly_comparison.append({
+            'month': date(y, m, 1).strftime('%b'),
+            'income': float(inc),
+            'expenses': float(exp),
+        })
+
+    return render(request, 'income.html', {
+        'income_list': qs,
+        'total': total,
+        'income_types': INCOME_TYPES,
+        'selected_month': month,
+        'search': search,
+        'type_data': json.dumps(type_data),
+        'monthly_comparison': json.dumps(monthly_comparison),
+    })
+
+
+def income_add(request):
+    if request.method == 'POST':
+        Income.objects.create(
+            title=request.POST['title'],
+            amount=request.POST['amount'],
+            income_type=request.POST['income_type'],
+            date=request.POST['date'],
+            notes=request.POST.get('notes', ''),
+            is_recurring=request.POST.get('is_recurring') == 'on',
+        )
+        messages.success(request, 'Income recorded! 💚')
+        return redirect('income')
+    return render(request, 'income_form.html', {
+        'income_types': INCOME_TYPES,
+        'today': date.today().isoformat(),
+    })
+
+
+def income_edit(request, pk):
+    inc = get_object_or_404(Income, pk=pk)
+    if request.method == 'POST':
+        inc.title       = request.POST['title']
+        inc.amount      = request.POST['amount']
+        inc.income_type = request.POST['income_type']
+        inc.date        = request.POST['date']
+        inc.notes       = request.POST.get('notes', '')
+        inc.is_recurring = request.POST.get('is_recurring') == 'on'
+        inc.save()
+        messages.success(request, 'Income updated! ✨')
+        return redirect('income')
+    return render(request, 'income_form.html', {
+        'income': inc,
+        'income_types': INCOME_TYPES,
+        'today': date.today().isoformat(),
+    })
+
+
+def income_delete(request, pk):
+    inc = get_object_or_404(Income, pk=pk)
+    if request.method == 'POST':
+        inc.delete()
+        messages.success(request, 'Income entry deleted.')
+    return redirect('income')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MONTHLY ANALYSIS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def monthly_analysis(request):
+    today = date.today()
+
+    # Get selected month/year from query params, default to current month
+    try:
+        year  = int(request.GET.get('year', today.year))
+        month = int(request.GET.get('month', today.month))
+    except ValueError:
+        year, month = today.year, today.month
+
+    # Clamp valid range
+    if month < 1:  month = 1
+    if month > 12: month = 12
+
+    month_start = date(year, month, 1)
+    month_end   = date(year, month, monthrange(year, month)[1])
+    month_label = month_start.strftime('%B %Y')
+
+    profile = get_profile()
+
+    # ── Totals ────────────────────────────────────────────────────────────────
+    total_income   = Income.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
+    total_expenses = Expense.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
+    net_balance    = float(total_income) - float(total_expenses)
+
+    # Savings deposited this month
+    total_saved = SavingsTransaction.objects.filter(
+        date__year=year, date__month=month, transaction_type='deposit'
+    ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # Subscriptions cost this month
+    subs = Subscription.objects.filter(is_active=True)
+    monthly_subs = round(sum(s.monthly_cost for s in subs), 2)
+
+    # Goals achieved this month
+    goals_achieved = Goal.objects.filter(
+        status='achieved',
+        updated_at__year=year,
+        updated_at__month=month,
+    )
+
+    # ── Spending by category ──────────────────────────────────────────────────
+    cat_breakdown = []
+    for key, label in EXPENSE_CATEGORIES:
+        amt = Expense.objects.filter(
+            category=key, date__year=year, date__month=month
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+        if amt:
+            cat_breakdown.append({
+                'key': key,
+                'label': label,
+                'amount': float(amt),
+                'percent': round(float(amt) / float(total_expenses) * 100, 1) if total_expenses else 0,
+            })
+    cat_breakdown.sort(key=lambda x: x['amount'], reverse=True)
+
+    # ── Income by type ────────────────────────────────────────────────────────
+    income_breakdown = []
+    for key, label in INCOME_TYPES:
+        amt = Income.objects.filter(
+            income_type=key, date__year=year, date__month=month
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+        if amt:
+            income_breakdown.append({'label': label, 'amount': float(amt)})
+
+    # ── Daily spending trend ──────────────────────────────────────────────────
+    daily_data = []
+    for day in range(1, monthrange(year, month)[1] + 1):
+        d   = date(year, month, day)
+        amt = Expense.objects.filter(date=d).aggregate(Sum('amount'))['amount__sum'] or 0
+        daily_data.append({'day': day, 'amount': float(amt)})
+
+    # ── Month navigation ──────────────────────────────────────────────────────
+    prev_month = month - 1 if month > 1 else 12
+    prev_year  = year if month > 1 else year - 1
+    next_month = month + 1 if month < 12 else 1
+    next_year  = year if month < 12 else year + 1
+
+    # Build year/month options for picker (last 2 years + next 1)
+    month_options = []
+    for y in range(today.year - 2, today.year + 2):
+        for m in range(1, 13):
+            month_options.append({
+                'year': y, 'month': m,
+                'label': date(y, m, 1).strftime('%B %Y'),
+                'selected': y == year and m == month,
+            })
+
+    return render(request, 'analysis.html', {
+        'profile': profile,
+        'month_label': month_label,
+        'year': year, 'month': month,
+        'prev_month': prev_month, 'prev_year': prev_year,
+        'next_month': next_month, 'next_year': next_year,
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'net_balance': net_balance,
+        'total_saved': total_saved,
+        'monthly_subs': monthly_subs,
+        'goals_achieved': goals_achieved,
+        'cat_breakdown': cat_breakdown,
+        'income_breakdown': income_breakdown,
+        'daily_data': json.dumps(daily_data),
+        'cat_chart_data': json.dumps([{'label': c['label'].split(' ', 1)[-1], 'amount': c['amount']} for c in cat_breakdown]),
+        'month_options': month_options,
     })
 
 
@@ -211,7 +448,6 @@ def expense_list(request):
 
     total = qs.aggregate(Sum('amount'))['amount__sum'] or 0
 
-    # 6-month bar chart
     today = date.today()
     monthly_data = []
     for i in range(5, -1, -1):
@@ -239,7 +475,7 @@ def expense_add(request):
                 is_recurring=request.POST.get('is_recurring') == 'on',
                 tags=request.POST.get('tags', ''),
             )
-            messages.success(request, f'Expense added! 💸')
+            messages.success(request, 'Expense added! 💸')
             return redirect('expenses')
         except Exception as e:
             messages.error(request, f'Error: {e}')
@@ -323,8 +559,8 @@ def savings_detail(request, pk):
 def savings_transact(request, pk):
     acc = get_object_or_404(SavingsAccount, pk=pk)
     if request.method == 'POST':
-        amount   = float(request.POST['amount'])
-        tx_type  = request.POST.get('transaction_type', 'deposit')
+        amount  = float(request.POST['amount'])
+        tx_type = request.POST.get('transaction_type', 'deposit')
         if tx_type == 'withdrawal' and amount > float(acc.balance):
             messages.error(request, 'Insufficient balance.')
         else:
@@ -353,10 +589,10 @@ def savings_delete(request, pk):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def investment_list(request):
-    investments      = Investment.objects.filter(is_active=True)
-    total_invested   = investments.aggregate(Sum('amount_invested'))['amount_invested__sum'] or 0
-    total_value      = investments.aggregate(Sum('current_value'))['current_value__sum'] or 0
-    total_gain       = float(total_value) - float(total_invested)
+    investments    = Investment.objects.filter(is_active=True)
+    total_invested = investments.aggregate(Sum('amount_invested'))['amount_invested__sum'] or 0
+    total_value    = investments.aggregate(Sum('current_value'))['current_value__sum'] or 0
+    total_gain     = float(total_value) - float(total_invested)
 
     type_data = []
     for key, label in INVESTMENT_TYPES:
@@ -537,7 +773,10 @@ def goal_delete(request, pk):
         messages.success(request, 'Goal removed.')
     return redirect('goals')
 
-# ── PWA ───────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PWA
+# ─────────────────────────────────────────────────────────────────────────────
 
 def offline(request):
     return render(request, 'offline.html')
