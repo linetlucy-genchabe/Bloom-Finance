@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Debt — Bloom Finance{% endblock %}
+{% block page_title %}💳 Debt Tracker{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div>
+    <h2 style="font-size:20px;font-weight:700">My Debts</h2>
+    <p style="color:var(--text-secondary);font-size:13px">
+      Total outstanding: <strong style="color:var(--danger)">{{ profile.currency }} {{ total_debt|floatformat:0|intcomma }}</strong>
+      · Original: {{ profile.currency }} {{ total_orig|floatformat:0|intcomma }}
+    </p>
+  </div>
+  <a href="{% url 'debt_add' %}" class="btn btn-primary">+ Add Debt</a>
+</div>
+
+<!-- Monthly payments chart -->
+<div class="card" style="margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:16px">📊 Monthly Payments (Last 6 Months)</div>
+  <canvas id="paymentsChart" height="130"></canvas>
+</div>
+
+{% if debts %}
+<div style="display:flex;flex-direction:column;gap:16px">
+  {% for debt in debts %}
+  <div class="card" style="padding:20px">
+    <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap">
+
+      <!-- Icon + Name -->
+      <div style="font-size:30px;width:50px;height:50px;background:var(--pink-light);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">{{ debt.emoji }}</div>
+
+      <div style="flex:1;min-width:200px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-weight:700;font-size:16px">{{ debt.name }}</span>
+          <span class="badge badge-pink" style="font-size:11px">{{ debt.get_debt_type_display }}</span>
+          {% if debt.lender %}<span style="font-size:12px;color:var(--text-secondary)">· {{ debt.lender }}</span>{% endif %}
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-bar" style="margin:8px 0">
+          <div class="progress-fill pink" style="width:{{ debt.progress_percent }}%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary)">
+          <span>{{ debt.progress_percent }}% paid · {{ profile.currency }} {{ debt.paid_amount|floatformat:0|intcomma }} cleared</span>
+          <span style="color:var(--danger);font-weight:600">{{ profile.currency }} {{ debt.remaining_balance|floatformat:0|intcomma }} left</span>
+        </div>
+
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap">
+          <span>💰 Original: {{ profile.currency }} {{ debt.total_amount|floatformat:0|intcomma }}</span>
+          {% if debt.monthly_payment > 0 %}<span>📅 Monthly: {{ profile.currency }} {{ debt.monthly_payment|floatformat:0|intcomma }}</span>{% endif %}
+          {% if debt.interest_rate > 0 %}<span>📈 {{ debt.interest_rate }}% p.a.</span>{% endif %}
+          {% if debt.due_date %}
+            <span {% if debt.days_until_due and debt.days_until_due <= 30 %}style="color:var(--danger);font-weight:600"{% endif %}>
+              📆 Due: {{ debt.due_date|date:"M d, Y" }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Actions + Quick Pay -->
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+        <div style="display:flex;gap:6px">
+          <a href="{% url 'debt_edit' debt.pk %}" class="btn btn-outline btn-sm">✏️</a>
+          <form method="post" action="{% url 'debt_delete' debt.pk %}" id="del-debt-{{ debt.pk }}" style="display:inline">
+            {% csrf_token %}
+            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-debt-{{ debt.pk }}', '{{ debt.name }}')">🗑️</button>
+          </form>
+        </div>
+        <!-- Quick pay form -->
+        <form method="post" action="{% url 'debt_pay' debt.pk %}" style="display:flex;gap:6px;align-items:center">
+          {% csrf_token %}
+          <input type="number" name="amount" class="form-control" step="0.01" min="0"
+            placeholder="Pay amount" style="width:120px;padding:6px 10px;font-size:12px">
+          <button type="submit" class="btn btn-success btn-sm">💚 Pay</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Recent payments -->
+    {% if debt.payments.all %}
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">Recent Payments</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% for pmt in debt.payments.all|slice:":4" %}
+        <div style="background:var(--success-bg);border-radius:8px;padding:4px 10px;font-size:11px;color:#2E7D52;font-weight:600">
+          {{ profile.currency }} {{ pmt.amount|floatformat:0|intcomma }} · {{ pmt.date|date:"M d" }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">🎉</div>
+    <div class="empty-title">No active debts!</div>
+    <div class="empty-text">Add any loans, credit cards or mobile loans to track them</div>
+    <a href="{% url 'debt_add' %}" class="btn btn-primary" style="margin-top:16px">+ Add Debt</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const pmtData = {{ monthly_payments|safe }};
+const currency = "{{ profile.currency }}";
+new Chart(document.getElementById('paymentsChart'), {
+  type: 'bar',
+  data: {
+    labels: pmtData.map(d => d.month),
+    datasets: [{
+      data: pmtData.map(d => d.amount),
+      backgroundColor: 'rgba(247,197,204,0.7)',
+      borderColor: '#E8929D', borderWidth: 2, borderRadius: 8,
+    }]
+  },
+  options: {
+    responsive: true, plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency+' '+v.toLocaleString() } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
+{% endblock %}
