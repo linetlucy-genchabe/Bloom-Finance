@@ -10,80 +10,102 @@
       <div class="card-title">Account Overview</div>
       <a href="{% url 'savings' %}" class="btn btn-outline btn-sm">← Back</a>
     </div>
-    <div style="text-align:center;padding:10px 0">
+    <div style="text-align:center;padding:10px 0 20px">
       <div style="font-size:48px;margin-bottom:8px">{{ account.emoji }}</div>
-      <div style="font-size:28px;font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ account.balance|floatformat:0|intcomma }}</div>
-      {% if account.target > 0 %}
-      <div style="color:var(--text-secondary);font-size:13px;margin-top:4px">of {{ profile.currency }} {{ account.target|floatformat:0|intcomma }} goal</div>
-      <div class="progress-bar" style="margin:16px 0 6px">
-        <div class="progress-fill green" style="width:{{ account.progress_percent }}%"></div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">{{ account.bank_name|default:'Savings Account' }}</div>
+      <div style="font-size:30px;font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ account.balance|floatformat:0|intcomma }}</div>
+      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Last updated {{ account.updated_at|date:"M d, Y" }}</div>
+
+      {% if account.linked_goal %}
+      <div style="margin-top:16px;padding:12px;background:var(--success-bg);border-radius:var(--radius-sm)">
+        <div style="font-size:13px;font-weight:600;color:#2E7D52;margin-bottom:6px">{{ account.linked_goal.emoji }} {{ account.linked_goal.name }}</div>
+        <div class="progress-bar">
+          <div class="progress-fill green" style="width:{{ account.progress_percent }}%"></div>
+        </div>
+        <div style="font-size:11px;color:#2E7D52;margin-top:4px">{{ account.progress_percent }}% · {{ profile.currency }} {{ account.linked_goal.remaining|floatformat:0|intcomma }} remaining</div>
       </div>
-      <div style="font-size:13px;color:var(--text-secondary)">{{ account.progress_percent }}% complete</div>
-      {% endif %}
-      {% if account.interest_rate > 0 %}
-      <div class="badge badge-success" style="margin-top:12px">{{ account.interest_rate }}% Annual Rate</div>
       {% endif %}
     </div>
 
-    <!-- Quick Transaction -->
-    <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:20px">
-      <div style="font-weight:600;font-size:14px;margin-bottom:14px">💰 Record Transaction</div>
-      <form method="post" action="{% url 'savings_transact' account.pk %}">
+    <!-- Update Balance -->
+    <div style="border-top:1px solid var(--border);padding-top:20px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:14px">🔄 Update Balance</div>
+      <form method="post" action="{% url 'savings_update_balance' account.pk %}">
         {% csrf_token %}
         <div class="form-group">
-          <label class="form-label">Type</label>
-          <select name="transaction_type" class="form-control">
-            <option value="deposit">💚 Deposit</option>
-            <option value="withdrawal">🔴 Withdrawal</option>
-            <option value="interest">✨ Interest</option>
-          </select>
+          <label class="form-label">New Balance ({{ profile.currency }})</label>
+          <input type="number" name="balance" class="form-control" step="0.01" min="0" placeholder="{{ account.balance }}" required>
         </div>
         <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Amount</label>
-            <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
-          </div>
           <div class="form-group">
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control" value="{% now 'Y-m-d' %}">
           </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <input type="text" name="notes" class="form-control" placeholder="e.g. After salary deposit">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Notes</label>
-          <input type="text" name="notes" class="form-control" placeholder="Optional note...">
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Record Transaction</button>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">💾 Update Balance</button>
       </form>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title" style="margin-bottom:16px">📋 Transaction History</div>
-    {% if transactions %}
-    <div class="table-container">
-      <table>
-        <thead><tr><th>Type</th><th>Amount</th><th>Date</th><th>Notes</th></tr></thead>
+    <div class="card-title" style="margin-bottom:16px">📈 Balance History</div>
+    {% if history %}
+    <canvas id="historyChart" height="200"></canvas>
+    <div style="margin-top:20px">
+      <table style="width:100%;font-size:13px">
+        <thead><tr><th>Date</th><th>Balance</th><th>Notes</th></tr></thead>
         <tbody>
-          {% for txn in transactions %}
+          {% for h in history %}
           <tr>
-            <td>
-              {% if txn.transaction_type == 'deposit' %}<span class="badge badge-success">💚 Deposit</span>
-              {% elif txn.transaction_type == 'withdrawal' %}<span class="badge badge-danger">🔴 Withdraw</span>
-              {% else %}<span class="badge badge-lilac">✨ Interest</span>{% endif %}
-            </td>
-            <td style="font-weight:700;{% if txn.transaction_type == 'withdrawal' %}color:var(--danger){% else %}color:var(--success){% endif %}">
-              {% if txn.transaction_type == 'withdrawal' %}-{% else %}+{% endif %}{{ profile.currency }} {{ txn.amount|floatformat:0|intcomma }}
-            </td>
-            <td style="color:var(--text-secondary);font-size:13px">{{ txn.date|date:"M d, Y" }}</td>
-            <td style="color:var(--text-light);font-size:13px">{{ txn.notes|default:"—" }}</td>
+            <td style="color:var(--text-secondary)">{{ h.date|date:"M d, Y" }}</td>
+            <td style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ h.balance|floatformat:0|intcomma }}</td>
+            <td style="color:var(--text-light)">{{ h.notes|default:"—" }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
-    <div class="empty-state" style="padding:30px"><div class="empty-icon" style="font-size:40px">📋</div><div class="empty-title" style="font-size:14px">No transactions yet</div></div>
+    <div class="empty-state" style="padding:30px">
+      <div style="font-size:40px;margin-bottom:8px">📊</div>
+      <div style="font-size:14px;color:var(--text-secondary)">No history yet — update your balance to start tracking</div>
+    </div>
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const chartData = {{ chart_data|safe }};
+const currency  = "{{ profile.currency }}";
+if (chartData.length > 1) {
+  new Chart(document.getElementById('historyChart'), {
+    type: 'line',
+    data: {
+      labels: chartData.map(d => d.date),
+      datasets: [{
+        label: 'Balance',
+        data: chartData.map(d => d.balance),
+        borderColor: '#9B72C8',
+        backgroundColor: 'rgba(200,168,233,0.15)',
+        borderWidth: 2, fill: true, tension: 0.3,
+        pointBackgroundColor: '#9B72C8', pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: false, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } }
+      }
+    }
+  });
+}
+</script>
 {% endblock %}
