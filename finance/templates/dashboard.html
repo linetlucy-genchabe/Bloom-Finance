@@ -4,7 +4,7 @@
 {% block page_title %}🏠 Dashboard{% endblock %}
 
 {% block content %}
-<!-- Quote Card -->
+<!-- Quote -->
 <div class="quote-card">
   <div class="quote-text">"{{ quote }}"</div>
   <div class="quote-author">— {{ quote_author }}</div>
@@ -13,28 +13,31 @@
 <!-- Stat Cards -->
 <div class="stats-grid">
   <div class="stat-card lilac">
-    <div class="stat-icon">💸</div>
-    <div class="stat-label">This Month's Spending</div>
-    <div class="stat-value">{{ profile.currency }} {{ month_expenses|floatformat:0|intcomma }}</div>
+    <div class="stat-icon">💚</div>
+    <div class="stat-label">Income This Month</div>
+    <div class="stat-value">{{ profile.currency }} {{ month_income|floatformat:0|intcomma }}</div>
     <div class="stat-sub">{{ today|date:"F Y" }}</div>
   </div>
   <div class="stat-card pink">
+    <div class="stat-icon">💸</div>
+    <div class="stat-label">Spent This Month</div>
+    <div class="stat-value">{{ profile.currency }} {{ month_expenses|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">
+      {% if net_balance >= 0 %}<span style="color:var(--success)">+{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} saved</span>
+      {% else %}<span style="color:var(--danger)">{{ profile.currency }} {{ net_balance|floatformat:0|intcomma }} over</span>{% endif %}
+    </div>
+  </div>
+  <div class="stat-card green">
     <div class="stat-icon">🏦</div>
     <div class="stat-label">Total Savings</div>
     <div class="stat-value">{{ profile.currency }} {{ total_savings|floatformat:0|intcomma }}</div>
-    <div class="stat-sub">Across all accounts</div>
-  </div>
-  <div class="stat-card green">
-    <div class="stat-icon">📈</div>
-    <div class="stat-label">Portfolio Value</div>
-    <div class="stat-value">{{ profile.currency }} {{ total_invest_val|floatformat:0|intcomma }}</div>
-    <div class="stat-sub">Invested: {{ profile.currency }} {{ total_invested|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">Net worth: {{ profile.currency }} {{ net_worth|floatformat:0|intcomma }}</div>
   </div>
   <div class="stat-card gold">
-    <div class="stat-icon">💳</div>
+    <div class="stat-icon">📱</div>
     <div class="stat-label">Monthly Subscriptions</div>
     <div class="stat-value">{{ profile.currency }} {{ monthly_subs|floatformat:0|intcomma }}</div>
-    <div class="stat-sub">Net worth: {{ profile.currency }} {{ net_worth|floatformat:0|intcomma }}</div>
+    <div class="stat-sub">{{ subs_count }} active subscription{{ subs_count|pluralize }}</div>
   </div>
 </div>
 
@@ -42,15 +45,15 @@
 <div class="grid-2">
   <div class="card">
     <div class="card-header">
-      <div class="card-title">📅 7-Day Spending</div>
-      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">View All</a>
+      <div class="card-title">📅 This Week's Spending</div>
+      <a href="{% url 'analysis' %}" class="btn btn-outline btn-sm">Monthly Analysis</a>
     </div>
     <canvas id="weeklyChart" height="200"></canvas>
   </div>
   <div class="card">
     <div class="card-header">
       <div class="card-title">🍕 Spending by Category</div>
-      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">Details</a>
+      <a href="{% url 'expenses' %}" class="btn btn-outline btn-sm">All Expenses</a>
     </div>
     <canvas id="catChart" height="200"></canvas>
   </div>
@@ -63,8 +66,8 @@
       <div class="card-title">🎯 Active Goals</div>
       <a href="{% url 'goals' %}" class="btn btn-outline btn-sm">All Goals</a>
     </div>
-    {% if goals %}
-      {% for goal in goals %}
+    {% if active_goals %}
+      {% for goal in active_goals %}
       <div style="margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-weight:600;font-size:14px">{{ goal.emoji }} {{ goal.name }}</span>
@@ -81,8 +84,8 @@
       {% endfor %}
     {% else %}
       <div class="empty-state" style="padding:20px">
-        <div class="empty-icon" style="font-size:40px">🎯</div>
-        <div class="empty-title" style="font-size:14px">No goals yet</div>
+        <div style="font-size:40px;margin-bottom:8px">🎯</div>
+        <div style="font-size:14px;color:var(--text-secondary)">No active goals yet</div>
         <a href="{% url 'goal_add' %}" class="btn btn-primary btn-sm" style="margin-top:10px">Add a Goal</a>
       </div>
     {% endif %}
@@ -100,15 +103,10 @@
         <div class="sub-info">
           <div class="sub-name" style="font-size:14px">{{ sub.name }}</div>
           <div class="sub-meta">
-            {% if sub.days_until_renewal == 0 %}
-            <span class="sub-renewal-urgent">Due TODAY</span>
-            {% elif sub.days_until_renewal == 1 %}
-            <span class="sub-renewal-urgent">Due TOMORROW</span>
-            {% elif sub.days_until_renewal <= 3 %}
-            <span class="sub-renewal-urgent">{{ sub.days_until_renewal }} days left</span>
-            {% else %}
-            <span class="sub-renewal-soon">{{ sub.days_until_renewal }} days left</span>
-            {% endif %}
+            {% if sub.days_until_renewal == 0 %}<span class="sub-renewal-urgent">Due TODAY</span>
+            {% elif sub.days_until_renewal == 1 %}<span class="sub-renewal-urgent">Due TOMORROW</span>
+            {% elif sub.days_until_renewal <= 3 %}<span class="sub-renewal-urgent">{{ sub.days_until_renewal }} days left</span>
+            {% else %}<span class="sub-renewal-soon">{{ sub.days_until_renewal }} days left</span>{% endif %}
           </div>
         </div>
         <div class="sub-amount" style="font-size:14px">{{ profile.currency }} {{ sub.amount|floatformat:0 }}</div>
@@ -140,7 +138,7 @@
         {% for exp in recent_expenses %}
         <tr>
           <td><strong>{{ exp.title }}</strong>{% if exp.notes %}<br><small style="color:var(--text-light)">{{ exp.notes|truncatechars:40 }}</small>{% endif %}</td>
-          <td><span class="badge badge-lilac">{{ exp.category_display }}</span></td>
+          <td><span class="badge badge-lilac">{{ exp.category_label }}</span></td>
           <td style="color:var(--text-secondary)">{{ exp.date|date:"M d" }}</td>
           <td style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ exp.amount|floatformat:0|intcomma }}</td>
         </tr>
@@ -157,18 +155,19 @@
 {% block extra_scripts %}
 <script>
 const weeklyData = {{ weekly_data|safe }};
-const catData = {{ cat_data|safe }};
-const currency = "{{ profile.currency }}";
+const catData    = {{ cat_data|safe }};
+const currency   = "{{ profile.currency }}";
+const COLORS     = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D','#9B72C8','#7EC8A0','#F4A87B','#C8E8A8'];
 
-// Weekly chart
+// Weekly Mon–Sun chart
 new Chart(document.getElementById('weeklyChart'), {
   type: 'bar',
   data: {
-    labels: weeklyData.map(d => d.day),
+    labels: weeklyData.map(d => d.is_today ? d.day + ' ★' : d.day),
     datasets: [{
       data: weeklyData.map(d => d.amount),
-      backgroundColor: 'rgba(200,168,233,0.6)',
-      borderColor: '#9B72C8',
+      backgroundColor: weeklyData.map(d => d.is_today ? '#9B72C8' : 'rgba(200,168,233,0.5)'),
+      borderColor: weeklyData.map(d => d.is_today ? '#7B4FAB' : '#C8A8E9'),
       borderWidth: 2,
       borderRadius: 8,
     }]
@@ -177,17 +176,14 @@ new Chart(document.getElementById('weeklyChart'), {
     responsive: true,
     plugins: { legend: { display: false } },
     scales: {
-      y: { beginAtZero: true, grid: { color: '#F0E8FF' },
-        ticks: { callback: v => currency + ' ' + v.toLocaleString() }
-      },
+      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
       x: { grid: { display: false } }
     }
   }
 });
 
 // Category donut
-if (catData.length > 0) {
-  const COLORS = ['#C8A8E9','#F7C5CC','#95DEB8','#F4C97B','#A8D8F7','#E8929D','#9B72C8','#7EC8A0','#F4A87B','#C8E8A8'];
+if (catData.length) {
   new Chart(document.getElementById('catChart'), {
     type: 'doughnut',
     data: {
@@ -195,8 +191,7 @@ if (catData.length > 0) {
       datasets: [{ data: catData.map(d => d.amount), backgroundColor: COLORS, borderWidth: 2, borderColor: '#fff' }]
     },
     options: {
-      responsive: true,
-      cutout: '65%',
+      responsive: true, cutout: '65%',
       plugins: {
         legend: { position: 'right', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
         tooltip: { callbacks: { label: ctx => ` ${currency} ${ctx.parsed.toLocaleString()}` } }
@@ -204,7 +199,7 @@ if (catData.length > 0) {
     }
   });
 } else {
-  document.getElementById('catChart').parentElement.innerHTML += '<div class="empty-state" style="padding:20px"><div class="empty-icon" style="font-size:40px">📊</div><div style="font-size:13px;color:var(--text-secondary)">No spending data this month</div></div>';
+  document.getElementById('catChart').parentElement.innerHTML += '<div class="empty-state" style="padding:20px"><div style="font-size:40px">📊</div><div style="font-size:13px;color:var(--text-secondary);margin-top:8px">No spending this month yet</div></div>';
   document.getElementById('catChart').style.display = 'none';
 }
 </script>
