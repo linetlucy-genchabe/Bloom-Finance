@@ -11,8 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import (
     BILLING_CYCLES, EXPENSE_CATEGORIES, INCOME_TYPES, INVESTMENT_TYPES,
-    PAYMENT_METHODS, SUBSCRIPTION_CATEGORIES,
-    Expense, Goal, Income, Investment, SavingsAccount, SavingsBalanceHistory,
+    MONTH_CHOICES, PAYMENT_METHODS, SUBSCRIPTION_CATEGORIES,
+    Expense, Goal, Income, Investment, MonthlySaving,
     Subscription, UserProfile,
 )
 
@@ -134,7 +134,7 @@ def dashboard(request):
 
     month_expenses   = Expense.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
     month_income     = Income.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
-    total_savings    = SavingsAccount.objects.filter(is_active=True).aggregate(Sum('balance'))['balance__sum'] or 0
+    total_savings    = MonthlySaving.objects.filter(year=today.year).aggregate(Sum('amount'))['amount__sum'] or 0
     total_invest_val = Investment.objects.filter(is_active=True).aggregate(Sum('current_value'))['current_value__sum'] or 0
     total_invested   = Investment.objects.filter(is_active=True).aggregate(Sum('amount_invested'))['amount_invested__sum'] or 0
 
@@ -215,8 +215,7 @@ def income_list(request):
         if m <= 0: m += 12; y -= 1
         inc  = Income.objects.filter(date__year=y, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
         exp  = Expense.objects.filter(date__year=y, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
-        # savings = deposits logged in balance history that month
-        sav  = SavingsBalanceHistory.objects.filter(date__year=y, date__month=m).aggregate(Sum('balance'))['balance__sum'] or 0
+        sav  = MonthlySaving.objects.filter(year=y, month=m).aggregate(Sum('amount'))['amount__sum'] or 0
         monthly_comparison.append({
             'month': date(y, m, 1).strftime('%b'),
             'income': float(inc),
@@ -274,144 +273,83 @@ def income_delete(request, pk):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SAVINGS  (simplified — track existing bank accounts)
+# SAVINGS — simple monthly tracker
 # ─────────────────────────────────────────────────────────────────────────────
 
 def savings_list(request):
-    accounts      = SavingsAccount.objects.filter(is_active=True)
-    total_savings = accounts.aggregate(Sum('balance'))['balance__sum'] or 0
+    today    = date.today()
+    year     = int(request.GET.get('year', today.year))
+    savings  = MonthlySaving.objects.filter(year=year).order_by('month')
+    total    = savings.aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # Build full 12-month grid with amounts (0 if not entered)
+    months_data = []
+    existing = {s.month: s for s in savings}
+    for m_num, m_name in MONTH_CHOICES:
+        entry = existing.get(m_num)
+        months_data.append({
+            'month_num': m_num,
+            'month_name': m_name,
+            'amount': float(entry.amount) if entry else 0,
+            'notes': entry.notes if entry else '',
+            'pk': entry.pk if entry else None,
+        })
+
+    # Chart data
+    chart_data = [{'month': d['month_name'][:3], 'amount': d['amount']} for d in months_data]
+
+    # Year options
+    years = list(range(2023, today.year + 2))
+
+    # Total savings across all years for goals
+    all_time_total = MonthlySaving.objects.aggregate(Sum('amount'))['amount__sum'] or 0
+
+    # Goals
+    goals = Goal.objects.filter(status='active')
+
     return render(request, 'savings.html', {
-        'accounts': accounts, 'total_savings': total_savings,
-        'goals': Goal.objects.filter(status='active'),
-    })
-
-
-def savings_add(request):
-    if request.method == 'POST':
-        goal_id = request.POST.get('linked_goal', '')
-        acc = SavingsAccount(
-            name=request.POST['name'],
-            bank_name=request.POST.get('bank_name', ''),
-            emoji=request.POST.get('emoji', '🏦'),
-            description=request.POST.get('description', ''),
-            balance=request.POST.get('balance', 0),
-        )
-        if goal_id:
-            acc.linked_goal = Goal.objects.filter(pk=goal_id).first()
-        acc.save()
-        # Record initial balance in history
-        if float(request.POST.get('balance', 0)) > 0:
-            SavingsBalanceHistory.objects.create(
-                account=acc, balance=acc.balance,
-                notes='Opening balance', date=date.today(),
-            )
-        messages.success(request, f'Account "{acc.name}" added! 🏦')
-        return redirect('savings')
-    return render(request, 'savings_form.html', {
-        'goals': Goal.objects.filter(status='active'),
-    })
-
-
-def savings_edit(request, pk):
-    acc = get_object_or_404(SavingsAccount, pk=pk)
-    if request.method == 'POST':
-        acc.name      = request.POST['name']
-        acc.bank_name = request.POST.get('bank_name', '')
-        acc.emoji     = request.POST.get('emoji', acc.emoji)
-        acc.description = request.POST.get('description', '')
-        goal_id = request.POST.get('linked_goal', '')
-        acc.linked_goal = Goal.objects.filter(pk=goal_id).first() if goal_id else None
-        acc.save()
-        messages.success(request, 'Account updated! ✨')
-        return redirect('savings')
-    return render(request, 'savings_form.html', {
-        'account': acc, 'goals': Goal.objects.filter(status='active'),
-    })
-
-
-def savings_detail(request, pk):
-    acc     = get_object_or_404(SavingsAccount, pk=pk)
-    history = acc.history.all()[:24]
-
-    chart_data = [
-        {
-            'date': h.date.strftime('%b %Y'),
-            'balance': float(h.balance),
-            'amount_saved': float(h.amount_saved),
-        }
-        for h in reversed(list(history))
-    ]
-
-    return render(request, 'savings_detail.html', {
-        'account': acc, 'history': history,
+        'months_data': months_data,
+        'total': total,
+        'all_time_total': all_time_total,
+        'year': year,
+        'years': years,
         'chart_data': json.dumps(chart_data),
+        'goals': goals,
     })
 
 
-def savings_update_balance(request, pk):
-    """Update current balance and/or log how much was saved this period."""
-    acc = get_object_or_404(SavingsAccount, pk=pk)
+def savings_log(request):
+    """Add or update a monthly saving entry."""
     if request.method == 'POST':
-        action      = request.POST.get('action', 'balance')  # 'balance' or 'log_saving'
-        notes       = request.POST.get('notes', '')
-        entry_date  = request.POST.get('date') or date.today()
+        year  = int(request.POST.get('year', date.today().year))
+        month = int(request.POST.get('month', date.today().month))
+        amount = request.POST.get('amount', '')
+        notes  = request.POST.get('notes', '')
 
-        if action == 'log_saving':
-            # Just log the monthly saving amount — don't change balance
-            try:
-                amount_saved = float(request.POST.get('amount_saved', 0))
-            except ValueError:
-                messages.error(request, 'Invalid amount.')
-                return redirect('savings_detail', pk=pk)
+        try:
+            amount = float(amount)
+        except ValueError:
+            messages.error(request, 'Invalid amount.')
+            return redirect('savings')
 
-            SavingsBalanceHistory.objects.create(
-                account=acc,
-                balance=acc.balance,          # snapshot current balance
-                amount_saved=amount_saved,
-                notes=notes,
-                date=entry_date,
-            )
-            messages.success(request, f'Saved KES {amount_saved:,.0f} logged! 💚')
-
+        obj, created = MonthlySaving.objects.update_or_create(
+            year=year, month=month,
+            defaults={'amount': amount, 'notes': notes},
+        )
+        month_name = dict(MONTH_CHOICES)[month]
+        if created:
+            messages.success(request, f'{month_name} {year} savings logged! 💚')
         else:
-            # Full balance update
-            try:
-                new_balance = float(request.POST.get('balance', 0))
-            except ValueError:
-                messages.error(request, 'Invalid balance amount.')
-                return redirect('savings_detail', pk=pk)
+            messages.success(request, f'{month_name} {year} savings updated! ✨')
 
-            amount_saved = float(request.POST.get('amount_saved', 0))
-            acc.balance  = new_balance
-            acc.save()
-
-            SavingsBalanceHistory.objects.create(
-                account=acc,
-                balance=new_balance,
-                amount_saved=amount_saved,
-                notes=notes,
-                date=entry_date,
-            )
-
-            # Update linked goal
-            if acc.linked_goal:
-                acc.linked_goal.saved_amount = new_balance
-                if float(new_balance) >= float(acc.linked_goal.target_amount):
-                    acc.linked_goal.status = 'achieved'
-                    messages.success(request, f'🎉 Goal "{acc.linked_goal.name}" achieved!')
-                acc.linked_goal.save()
-
-            messages.success(request, f'Balance updated to {new_balance:,.0f}! 💚')
-
-    return redirect('savings_detail', pk=pk)
+    return redirect('savings')
 
 
 def savings_delete(request, pk):
-    acc = get_object_or_404(SavingsAccount, pk=pk)
+    entry = get_object_or_404(MonthlySaving, pk=pk)
     if request.method == 'POST':
-        acc.is_active = False
-        acc.save()
-        messages.success(request, 'Account archived.')
+        entry.delete()
+        messages.success(request, 'Entry deleted.')
     return redirect('savings')
 
 
@@ -652,9 +590,7 @@ def monthly_analysis(request):
     total_expenses = Expense.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
     net_balance    = float(total_income) - float(total_expenses)
 
-    total_saved = SavingsBalanceHistory.objects.filter(
-        date__year=year, date__month=month
-    ).aggregate(Sum('balance'))['balance__sum'] or 0
+    total_saved = MonthlySaving.objects.filter(year=year, month=month).aggregate(Sum('amount'))['amount__sum'] or 0
 
     subs         = list(Subscription.objects.filter(is_active=True))
     monthly_subs = round(sum(s.monthly_cost for s in subs), 2)
@@ -798,11 +734,3 @@ def expense_delete(request, pk):
         exp.delete()
         messages.success(request, 'Expense deleted.')
     return redirect('expenses')
-
-
-def savings_clear_history(request, pk):
-    acc = get_object_or_404(SavingsAccount, pk=pk)
-    if request.method == 'POST':
-        acc.history.all().delete()
-        messages.success(request, 'History cleared — you can now log from January. 🌱')
-    return redirect('savings_detail', pk=pk)
