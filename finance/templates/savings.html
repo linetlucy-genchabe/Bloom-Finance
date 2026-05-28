@@ -4,54 +4,128 @@
 {% block page_title %}🏦 Savings{% endblock %}
 
 {% block content %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-  <div>
-    <h2 style="font-size:20px;font-weight:700">My Bank Accounts</h2>
-    <p style="color:var(--text-secondary);font-size:13px">Total tracked: <strong>{{ profile.currency }} {{ total_savings|floatformat:0|intcomma }}</strong></p>
-  </div>
-  <a href="{% url 'savings_add' %}" class="btn btn-primary">+ Add Account</a>
-</div>
 
-{% if accounts %}
-<div class="savings-grid">
-  {% for acc in accounts %}
-  <div class="savings-card">
-    <div class="savings-name">{{ acc.emoji }} {{ acc.name }}{% if acc.bank_name %} <span style="font-weight:400;font-size:13px;color:var(--text-secondary)">· {{ acc.bank_name }}</span>{% endif %}</div>
-    {% if acc.description %}<p style="color:var(--text-secondary);font-size:12px;margin-top:4px">{{ acc.description }}</p>{% endif %}
-    <div class="savings-balance">{{ profile.currency }} {{ acc.balance|floatformat:0|intcomma }}</div>
-
-    {% if acc.linked_goal %}
-    <div style="margin-top:8px">
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px">Goal: {{ acc.linked_goal.emoji }} {{ acc.linked_goal.name }}</div>
-      <div class="progress-bar">
-        <div class="progress-fill green" style="width:{{ acc.progress_percent }}%"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-top:3px">
-        <span>{{ acc.progress_percent }}% of {{ profile.currency }} {{ acc.linked_goal.target_amount|floatformat:0|intcomma }}</span>
-        <span>{{ profile.currency }} {{ acc.linked_goal.remaining|floatformat:0|intcomma }} to go</span>
+<!-- Year Selector + Summary -->
+<div class="card" style="margin-bottom:24px;padding:16px 24px">
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="flex:1">
+      <div style="font-size:20px;font-weight:700">Monthly Savings — {{ year }}</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-top:2px">
+        This year: <strong>{{ profile.currency }} {{ total|floatformat:0|intcomma }}</strong> ·
+        All time: <strong>{{ profile.currency }} {{ all_time_total|floatformat:0|intcomma }}</strong>
       </div>
     </div>
-    {% endif %}
+    <form method="get" style="display:flex;align-items:center;gap:10px">
+      <select name="year" class="form-control" style="width:auto" onchange="this.form.submit()">
+        {% for y in years %}
+        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
 
-    <div class="savings-actions">
-      <a href="{% url 'savings_detail' acc.pk %}" class="btn btn-outline btn-sm">📋 History</a>
-      <a href="{% url 'savings_edit' acc.pk %}" class="btn btn-outline btn-sm">✏️ Edit</a>
-      <form method="post" action="{% url 'savings_delete' acc.pk %}" id="del-sav-{{ acc.pk }}" style="display:inline">
+<!-- Chart -->
+<div class="card" style="margin-bottom:24px">
+  <div class="card-title" style="margin-bottom:16px">📊 {{ year }} Savings by Month</div>
+  <canvas id="savingsChart" height="150"></canvas>
+</div>
+
+<!-- Monthly Grid — 12 months -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">💚 Log Monthly Savings</div>
+    <div style="font-size:12px;color:var(--text-secondary)">Click any month to add or update</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:8px">
+    {% for m in months_data %}
+    <div style="border:1.5px solid {% if m.amount > 0 %}var(--success){% else %}var(--border){% endif %};border-radius:var(--radius-sm);padding:14px;background:{% if m.amount > 0 %}var(--success-bg){% else %}white{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:700;font-size:15px">{{ m.month_name }}</div>
+        {% if m.pk %}
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-weight:700;color:var(--success);font-size:15px">{{ profile.currency }} {{ m.amount|floatformat:0|intcomma }}</span>
+          <form method="post" action="{% url 'savings_delete' m.pk %}" id="del-sav-{{ m.pk }}" style="display:inline">
+            {% csrf_token %}
+            <button type="button" class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:11px" onclick="confirmDelete('del-sav-{{ m.pk }}', '{{ m.month_name }} {{ year }}')">✕</button>
+          </form>
+        </div>
+        {% else %}
+        <span style="font-size:12px;color:var(--text-light)">Not logged</span>
+        {% endif %}
+      </div>
+
+      <!-- Inline log form -->
+      <form method="post" action="{% url 'savings_log' %}" style="display:flex;gap:6px;align-items:center">
         {% csrf_token %}
-        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('del-sav-{{ acc.pk }}', '{{ acc.name }}')">🗑️</button>
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ m.month_num }}">
+        <input type="number" name="amount" class="form-control" step="0.01" min="0"
+          placeholder="{% if m.amount > 0 %}Update amount{% else %}Amount saved{% endif %}"
+          value="{% if m.amount > 0 %}{{ m.amount|floatformat:0 }}{% endif %}"
+          style="flex:1;padding:7px 10px;font-size:13px">
+        <button type="submit" class="btn btn-success btn-sm">💾</button>
       </form>
+
+      {% if m.notes %}
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px">📝 {{ m.notes }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Goals linked to savings -->
+{% if goals %}
+<div class="card" style="margin-top:24px">
+  <div class="card-title" style="margin-bottom:16px">🎯 Goals Progress</div>
+  {% for goal in goals %}
+  <div style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-weight:600;font-size:14px">{{ goal.emoji }} {{ goal.name }}</span>
+      <span style="font-size:12px;color:var(--text-secondary)">{{ goal.progress_percent }}%</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill green" style="width:{{ goal.progress_percent }}%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-light);margin-top:3px">
+      <span>{{ profile.currency }} {{ goal.saved_amount|floatformat:0|intcomma }} saved</span>
+      <span>{{ profile.currency }} {{ goal.remaining|floatformat:0|intcomma }} to go</span>
     </div>
   </div>
   {% endfor %}
 </div>
-{% else %}
-<div class="card">
-  <div class="empty-state">
-    <div class="empty-icon">🏦</div>
-    <div class="empty-title">No accounts tracked yet</div>
-    <div class="empty-text">Add your KCB, Equity, M-Pesa or any bank account to track balances</div>
-    <a href="{% url 'savings_add' %}" class="btn btn-primary" style="margin-top:16px">+ Add First Account</a>
-  </div>
-</div>
 {% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const chartData = {{ chart_data|safe }};
+const currency  = "{{ profile.currency }}";
+const COLORS    = chartData.map(d => d.amount > 0 ? 'rgba(126,200,160,0.8)' : 'rgba(200,168,233,0.3)');
+
+new Chart(document.getElementById('savingsChart'), {
+  type: 'bar',
+  data: {
+    labels: chartData.map(d => d.month),
+    datasets: [{
+      data: chartData.map(d => d.amount),
+      backgroundColor: COLORS,
+      borderColor: chartData.map(d => d.amount > 0 ? '#7EC8A0' : '#C8A8E9'),
+      borderWidth: 2,
+      borderRadius: 8,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+</script>
 {% endblock %}
