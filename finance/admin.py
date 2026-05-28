@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Income, UserProfile, Expense, MonthlySaving,
-    Investment, Subscription, Goal,
+    Debt, DebtPayment, Investment, Subscription, Goal,
 )
 
 @admin.register(UserProfile)
@@ -25,6 +25,15 @@ class ExpenseAdmin(admin.ModelAdmin):
 class MonthlySavingAdmin(admin.ModelAdmin):
     list_display = ['year', 'month', 'amount', 'notes']
     list_filter  = ['year']
+
+@admin.register(Debt)
+class DebtAdmin(admin.ModelAdmin):
+    list_display = ['name', 'debt_type', 'total_amount', 'remaining_balance', 'is_active']
+    list_filter  = ['debt_type', 'is_active']
+
+@admin.register(DebtPayment)
+class DebtPaymentAdmin(admin.ModelAdmin):
+    list_display = ['debt', 'amount', 'date', 'notes']
 
 @admin.register(Investment)
 class InvestmentAdmin(admin.ModelAdmin):
