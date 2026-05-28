@@ -96,12 +96,13 @@ class SavingsAccount(models.Model):
 
 
 class SavingsBalanceHistory(models.Model):
-    """Records every time the balance is manually updated."""
-    account    = models.ForeignKey(SavingsAccount, on_delete=models.CASCADE, related_name='history')
-    balance    = models.DecimalField(max_digits=12, decimal_places=2)
-    notes      = models.CharField(max_length=300, blank=True)
-    date       = models.DateField(default=timezone.now)
-    created_at = models.DateTimeField(auto_now_add=True)
+    """Records a balance snapshot and how much was saved that period."""
+    account      = models.ForeignKey(SavingsAccount, on_delete=models.CASCADE, related_name='history')
+    balance      = models.DecimalField(max_digits=12, decimal_places=2, help_text='Total balance at this point')
+    amount_saved = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text='Amount saved this month/period')
+    notes        = models.CharField(max_length=300, blank=True)
+    date         = models.DateField(default=timezone.now)
+    created_at   = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-date', '-created_at']

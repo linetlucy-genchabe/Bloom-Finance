@@ -333,8 +333,14 @@ def savings_detail(request, pk):
     acc     = get_object_or_404(SavingsAccount, pk=pk)
     history = acc.history.all()[:24]
 
-    # Build chart data from history
-    chart_data = [{'date': str(h.date), 'balance': float(h.balance)} for h in reversed(list(history))]
+    chart_data = [
+        {
+            'date': h.date.strftime('%b %Y'),
+            'balance': float(h.balance),
+            'amount_saved': float(h.amount_saved),
+        }
+        for h in reversed(list(history))
+    ]
 
     return render(request, 'savings_detail.html', {
         'account': acc, 'history': history,
@@ -343,34 +349,60 @@ def savings_detail(request, pk):
 
 
 def savings_update_balance(request, pk):
-    """Update the current balance — records a snapshot in history."""
+    """Update current balance and/or log how much was saved this period."""
     acc = get_object_or_404(SavingsAccount, pk=pk)
     if request.method == 'POST':
-        new_balance = request.POST.get('balance', '')
+        action      = request.POST.get('action', 'balance')  # 'balance' or 'log_saving'
         notes       = request.POST.get('notes', '')
-        try:
-            new_balance = float(new_balance)
-        except ValueError:
-            messages.error(request, 'Invalid balance amount.')
-            return redirect('savings_detail', pk=pk)
+        entry_date  = request.POST.get('date') or date.today()
 
-        acc.balance = new_balance
-        acc.save()
+        if action == 'log_saving':
+            # Just log the monthly saving amount — don't change balance
+            try:
+                amount_saved = float(request.POST.get('amount_saved', 0))
+            except ValueError:
+                messages.error(request, 'Invalid amount.')
+                return redirect('savings_detail', pk=pk)
 
-        SavingsBalanceHistory.objects.create(
-            account=acc, balance=new_balance,
-            notes=notes, date=request.POST.get('date') or date.today(),
-        )
+            SavingsBalanceHistory.objects.create(
+                account=acc,
+                balance=acc.balance,          # snapshot current balance
+                amount_saved=amount_saved,
+                notes=notes,
+                date=entry_date,
+            )
+            messages.success(request, f'Saved KES {amount_saved:,.0f} logged! 💚')
 
-        # Update linked goal saved_amount if any
-        if acc.linked_goal:
-            acc.linked_goal.saved_amount = new_balance
-            if float(new_balance) >= float(acc.linked_goal.target_amount):
-                acc.linked_goal.status = 'achieved'
-                messages.success(request, f'🎉 Goal "{acc.linked_goal.name}" achieved!')
-            acc.linked_goal.save()
+        else:
+            # Full balance update
+            try:
+                new_balance = float(request.POST.get('balance', 0))
+            except ValueError:
+                messages.error(request, 'Invalid balance amount.')
+                return redirect('savings_detail', pk=pk)
 
-        messages.success(request, f'Balance updated to {acc.balance:,.2f}! 💚')
+            amount_saved = float(request.POST.get('amount_saved', 0))
+            acc.balance  = new_balance
+            acc.save()
+
+            SavingsBalanceHistory.objects.create(
+                account=acc,
+                balance=new_balance,
+                amount_saved=amount_saved,
+                notes=notes,
+                date=entry_date,
+            )
+
+            # Update linked goal
+            if acc.linked_goal:
+                acc.linked_goal.saved_amount = new_balance
+                if float(new_balance) >= float(acc.linked_goal.target_amount):
+                    acc.linked_goal.status = 'achieved'
+                    messages.success(request, f'🎉 Goal "{acc.linked_goal.name}" achieved!')
+                acc.linked_goal.save()
+
+            messages.success(request, f'Balance updated to {new_balance:,.0f}! 💚')
+
     return redirect('savings_detail', pk=pk)
 
 

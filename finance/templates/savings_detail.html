@@ -5,36 +5,76 @@
 
 {% block content %}
 <div class="grid-2">
-  <div class="card">
-    <div class="card-header">
-      <div class="card-title">Account Overview</div>
-      <a href="{% url 'savings' %}" class="btn btn-outline btn-sm">← Back</a>
-    </div>
-    <div style="text-align:center;padding:10px 0 20px">
-      <div style="font-size:48px;margin-bottom:8px">{{ account.emoji }}</div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">{{ account.bank_name|default:'Savings Account' }}</div>
-      <div style="font-size:30px;font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ account.balance|floatformat:0|intcomma }}</div>
-      <div style="font-size:12px;color:var(--text-light);margin-top:4px">Last updated {{ account.updated_at|date:"M d, Y" }}</div>
 
-      {% if account.linked_goal %}
-      <div style="margin-top:16px;padding:12px;background:var(--success-bg);border-radius:var(--radius-sm)">
-        <div style="font-size:13px;font-weight:600;color:#2E7D52;margin-bottom:6px">{{ account.linked_goal.emoji }} {{ account.linked_goal.name }}</div>
-        <div class="progress-bar">
-          <div class="progress-fill green" style="width:{{ account.progress_percent }}%"></div>
-        </div>
-        <div style="font-size:11px;color:#2E7D52;margin-top:4px">{{ account.progress_percent }}% · {{ profile.currency }} {{ account.linked_goal.remaining|floatformat:0|intcomma }} remaining</div>
+  <!-- Left: Overview + Forms -->
+  <div style="display:flex;flex-direction:column;gap:20px">
+
+    <!-- Balance Overview -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Account Overview</div>
+        <a href="{% url 'savings' %}" class="btn btn-outline btn-sm">← Back</a>
       </div>
-      {% endif %}
+      <div style="text-align:center;padding:10px 0 20px">
+        <div style="font-size:48px;margin-bottom:8px">{{ account.emoji }}</div>
+        <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">{{ account.bank_name|default:'Savings Account' }}</div>
+        <div style="font-size:32px;font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ account.balance|floatformat:0|intcomma }}</div>
+        <div style="font-size:12px;color:var(--text-light);margin-top:4px">Last updated {{ account.updated_at|date:"M d, Y" }}</div>
+        {% if account.linked_goal %}
+        <div style="margin-top:16px;padding:12px;background:var(--success-bg);border-radius:var(--radius-sm)">
+          <div style="font-size:13px;font-weight:600;color:#2E7D52;margin-bottom:6px">{{ account.linked_goal.emoji }} {{ account.linked_goal.name }}</div>
+          <div class="progress-bar">
+            <div class="progress-fill green" style="width:{{ account.progress_percent }}%"></div>
+          </div>
+          <div style="font-size:11px;color:#2E7D52;margin-top:4px">{{ account.progress_percent }}% · {{ profile.currency }} {{ account.linked_goal.remaining|floatformat:0|intcomma }} remaining</div>
+        </div>
+        {% endif %}
+      </div>
     </div>
 
-    <!-- Update Balance -->
-    <div style="border-top:1px solid var(--border);padding-top:20px">
-      <div style="font-weight:600;font-size:14px;margin-bottom:14px">🔄 Update Balance</div>
+    <!-- Log Monthly Saving -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:4px">💚 Log Monthly Saving</div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Record how much you saved this month without changing the total balance</p>
       <form method="post" action="{% url 'savings_update_balance' account.pk %}">
         {% csrf_token %}
+        <input type="hidden" name="action" value="log_saving">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Amount Saved ({{ profile.currency }}) *</label>
+            <input type="number" name="amount_saved" class="form-control" step="0.01" min="0" placeholder="e.g. 5000" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Month</label>
+            <input type="date" name="date" class="form-control" value="{% now 'Y-m-01' %}">
+            <div class="form-hint">Set to the 1st of the month you're logging</div>
+          </div>
+        </div>
         <div class="form-group">
-          <label class="form-label">New Balance ({{ profile.currency }})</label>
-          <input type="number" name="balance" class="form-control" step="0.01" min="0" placeholder="{{ account.balance }}" required>
+          <label class="form-label">Notes</label>
+          <input type="text" name="notes" class="form-control" placeholder="e.g. March savings after salary">
+        </div>
+        <button type="submit" class="btn btn-success" style="width:100%;justify-content:center">💚 Log This Month's Saving</button>
+      </form>
+    </div>
+
+    <!-- Update Total Balance -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:4px">🔄 Update Total Balance</div>
+      <p style="font-size:12px;color:var(--text-secondary);margin-bottom:16px">Update what's actually in your account right now</p>
+      <form method="post" action="{% url 'savings_update_balance' account.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="balance">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">New Balance ({{ profile.currency }}) *</label>
+            <input type="number" name="balance" class="form-control" step="0.01" min="0" placeholder="{{ account.balance }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount Saved This Time</label>
+            <input type="number" name="amount_saved" class="form-control" step="0.01" min="0" placeholder="0.00">
+            <div class="form-hint">Optional — how much you added</div>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -43,7 +83,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">Notes</label>
-            <input type="text" name="notes" class="form-control" placeholder="e.g. After salary deposit">
+            <input type="text" name="notes" class="form-control" placeholder="e.g. After April salary">
           </div>
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">💾 Update Balance</button>
@@ -51,19 +91,30 @@
     </div>
   </div>
 
+  <!-- Right: History -->
   <div class="card">
-    <div class="card-title" style="margin-bottom:16px">📈 Balance History</div>
+    <div class="card-title" style="margin-bottom:16px">📈 Balance & Savings History</div>
     {% if history %}
     <canvas id="historyChart" height="200"></canvas>
-    <div style="margin-top:20px">
+    <div style="margin-top:20px;overflow-x:auto">
       <table style="width:100%;font-size:13px">
-        <thead><tr><th>Date</th><th>Balance</th><th>Notes</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Balance</th>
+            <th>Saved</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
         <tbody>
           {% for h in history %}
           <tr>
-            <td style="color:var(--text-secondary)">{{ h.date|date:"M d, Y" }}</td>
+            <td style="color:var(--text-secondary);white-space:nowrap">{{ h.date|date:"M Y" }}</td>
             <td style="font-weight:700;color:var(--lilac-dark)">{{ profile.currency }} {{ h.balance|floatformat:0|intcomma }}</td>
-            <td style="color:var(--text-light)">{{ h.notes|default:"—" }}</td>
+            <td style="color:var(--success);font-weight:600">
+              {% if h.amount_saved > 0 %}+{{ profile.currency }} {{ h.amount_saved|floatformat:0|intcomma }}{% else %}—{% endif %}
+            </td>
+            <td style="color:var(--text-light)">{{ h.notes|default:"—"|truncatechars:30 }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -72,10 +123,11 @@
     {% else %}
     <div class="empty-state" style="padding:30px">
       <div style="font-size:40px;margin-bottom:8px">📊</div>
-      <div style="font-size:14px;color:var(--text-secondary)">No history yet — update your balance to start tracking</div>
+      <div style="font-size:14px;color:var(--text-secondary)">No history yet — log a monthly saving or update your balance to start</div>
     </div>
     {% endif %}
   </div>
+
 </div>
 {% endblock %}
 
@@ -88,21 +140,33 @@ if (chartData.length > 1) {
     type: 'line',
     data: {
       labels: chartData.map(d => d.date),
-      datasets: [{
-        label: 'Balance',
-        data: chartData.map(d => d.balance),
-        borderColor: '#9B72C8',
-        backgroundColor: 'rgba(200,168,233,0.15)',
-        borderWidth: 2, fill: true, tension: 0.3,
-        pointBackgroundColor: '#9B72C8', pointRadius: 4,
-      }]
+      datasets: [
+        {
+          label: 'Balance',
+          data: chartData.map(d => d.balance),
+          borderColor: '#9B72C8',
+          backgroundColor: 'rgba(200,168,233,0.15)',
+          borderWidth: 2, fill: true, tension: 0.3,
+          pointBackgroundColor: '#9B72C8', pointRadius: 4,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Saved',
+          data: chartData.map(d => d.amount_saved),
+          borderColor: '#7EC8A0',
+          backgroundColor: 'rgba(126,200,160,0.15)',
+          borderWidth: 2, fill: false, tension: 0.3,
+          pointBackgroundColor: '#7EC8A0', pointRadius: 4,
+          yAxisID: 'y',
+        },
+      ]
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12 } } },
       scales: {
         y: { beginAtZero: false, grid: { color: '#F0E8FF' }, ticks: { callback: v => currency + ' ' + v.toLocaleString() } },
-        x: { grid: { display: false }, ticks: { maxTicksLimit: 6 } }
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } }
       }
     }
   });
