@@ -99,6 +99,71 @@ class MonthlySaving(models.Model):
         return f'{self.get_month_display()} {self.year}'
 
 
+# ── DEBT ─────────────────────────────────────────────────────────────────────
+
+DEBT_TYPES = [
+    ('loan',         '🏦 Bank / SACCO Loan'),
+    ('credit_card',  '💳 Credit Card'),
+    ('bnpl',         '🛒 Buy Now Pay Later'),
+    ('personal',     '🤝 Personal Debt'),
+    ('mobile_loan',  '📱 Mobile Loan (Fuliza / M-Shwari)'),
+    ('other',        '📦 Other'),
+]
+
+
+class Debt(models.Model):
+    name              = models.CharField(max_length=200)
+    debt_type         = models.CharField(max_length=20, choices=DEBT_TYPES, default='loan')
+    emoji             = models.CharField(max_length=10, default='💳')
+    total_amount      = models.DecimalField(max_digits=12, decimal_places=2, help_text='Original loan amount')
+    remaining_balance = models.DecimalField(max_digits=12, decimal_places=2, help_text='Current outstanding balance')
+    monthly_payment   = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text='Expected monthly payment')
+    interest_rate     = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text='Annual interest rate %')
+    due_date          = models.DateField(null=True, blank=True, help_text='Final repayment date')
+    lender            = models.CharField(max_length=200, blank=True, help_text='e.g. KCB, Equity, friend name')
+    notes             = models.TextField(blank=True)
+    is_active         = models.BooleanField(default=True)
+    created_at        = models.DateTimeField(auto_now_add=True)
+    updated_at        = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def paid_amount(self):
+        return float(self.total_amount) - float(self.remaining_balance)
+
+    @property
+    def progress_percent(self):
+        if self.total_amount > 0:
+            return min(100, round(self.paid_amount / float(self.total_amount) * 100, 1))
+        return 0
+
+    @property
+    def days_until_due(self):
+        if self.due_date:
+            return (self.due_date - date.today()).days
+        return None
+
+
+class DebtPayment(models.Model):
+    """Records each payment made toward a debt."""
+    debt       = models.ForeignKey(Debt, on_delete=models.CASCADE, related_name='payments')
+    amount     = models.DecimalField(max_digits=12, decimal_places=2)
+    date       = models.DateField(default=timezone.now)
+    notes      = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'{self.debt.name} — {self.amount} on {self.date}'
+
+
 # ── INVESTMENTS ───────────────────────────────────────────────────────────────
 
 INVESTMENT_TYPES = [
