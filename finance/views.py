@@ -10,9 +10,9 @@ from django.db.models import Sum, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import (
-    BILLING_CYCLES, EXPENSE_CATEGORIES, INCOME_TYPES, INVESTMENT_TYPES,
+    BILLING_CYCLES, DEBT_TYPES, EXPENSE_CATEGORIES, INCOME_TYPES, INVESTMENT_TYPES,
     MONTH_CHOICES, PAYMENT_METHODS, SUBSCRIPTION_CATEGORIES,
-    Expense, Goal, Income, Investment, MonthlySaving,
+    Debt, DebtPayment, Expense, Goal, Income, Investment, MonthlySaving,
     Subscription, UserProfile,
 )
 
@@ -128,37 +128,85 @@ def profile_settings(request):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def dashboard(request):
-    today       = date.today()
-    month_start = today.replace(day=1)
-    profile     = get_profile()
+    today = date.today()
+    profile = get_profile()
 
-    month_expenses   = Expense.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
-    month_income     = Income.objects.filter(date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
-    total_savings    = MonthlySaving.objects.filter(year=today.year).aggregate(Sum('amount'))['amount__sum'] or 0
+    # View mode: month or year
+    view_mode = request.GET.get('view', 'month')
+    try:
+        sel_year  = int(request.GET.get('year',  today.year))
+        sel_month = int(request.GET.get('month', today.month))
+    except ValueError:
+        sel_year, sel_month = today.year, today.month
+
+    if view_mode == 'year':
+        # ── Year summary ──────────────────────────────────────────────────────
+        month_income   = Income.objects.filter(date__year=sel_year).aggregate(Sum('amount'))['amount__sum'] or 0
+        month_expenses = Expense.objects.filter(date__year=sel_year).aggregate(Sum('amount'))['amount__sum'] or 0
+        total_savings  = MonthlySaving.objects.filter(year=sel_year).aggregate(Sum('amount'))['amount__sum'] or 0
+        debt_paid      = DebtPayment.objects.filter(date__year=sel_year).aggregate(Sum('amount'))['amount__sum'] or 0
+        period_label   = str(sel_year)
+
+        # Monthly breakdown for year chart
+        monthly_breakdown = []
+        for m in range(1, 13):
+            inc = Income.objects.filter(date__year=sel_year, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+            exp = Expense.objects.filter(date__year=sel_year, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+            sav = MonthlySaving.objects.filter(year=sel_year, month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+            dbt = DebtPayment.objects.filter(date__year=sel_year, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+            monthly_breakdown.append({
+                'month': date(sel_year, m, 1).strftime('%b'),
+                'income': float(inc), 'expenses': float(exp),
+                'savings': float(sav), 'debt': float(dbt),
+            })
+    else:
+        # ── Month summary ─────────────────────────────────────────────────────
+        month_start    = date(sel_year, sel_month, 1)
+        month_income   = Income.objects.filter(date__year=sel_year, date__month=sel_month).aggregate(Sum('amount'))['amount__sum'] or 0
+        month_expenses = Expense.objects.filter(date__year=sel_year, date__month=sel_month).aggregate(Sum('amount'))['amount__sum'] or 0
+        total_savings  = MonthlySaving.objects.filter(year=sel_year, month=sel_month).aggregate(Sum('amount'))['amount__sum'] or 0
+        debt_paid      = DebtPayment.objects.filter(date__year=sel_year, date__month=sel_month).aggregate(Sum('amount'))['amount__sum'] or 0
+        period_label   = date(sel_year, sel_month, 1).strftime('%B %Y')
+        monthly_breakdown = []
+
+    net_balance = float(month_income) - float(month_expenses)
+
+    # Always-present data
     total_invest_val = Investment.objects.filter(is_active=True).aggregate(Sum('current_value'))['current_value__sum'] or 0
     total_invested   = Investment.objects.filter(is_active=True).aggregate(Sum('amount_invested'))['amount_invested__sum'] or 0
+    subs             = list(Subscription.objects.filter(is_active=True))
+    monthly_subs     = round(sum(s.monthly_cost for s in subs), 2)
+    net_worth        = float(MonthlySaving.objects.aggregate(Sum('amount'))['amount__sum'] or 0) + float(total_invest_val)
+    active_debts     = list(Debt.objects.filter(is_active=True))
+    total_debt       = sum(float(d.remaining_balance) for d in active_debts)
 
-    subs         = list(Subscription.objects.filter(is_active=True))
-    monthly_subs = round(sum(s.monthly_cost for s in subs), 2)
-    net_worth    = float(total_savings) + float(total_invest_val)
-    net_balance  = float(month_income) - float(month_expenses)
-
-    recent_expenses = list(Expense.objects.all()[:5])
-    active_goals    = list(Goal.objects.filter(status='active').order_by('priority')[:4])
+    recent_expenses = list(Expense.objects.filter(date__year=sel_year, date__month=sel_month if view_mode=='month' else today.month)[:5])
+    active_goals    = list(Goal.objects.filter(status='active').order_by('priority')[:3])
     upcoming_subs   = [s for s in subs if 0 <= s.days_until_renewal <= 7]
 
+    # Spending by category
+    cat_filter = {'date__year': sel_year}
+    if view_mode == 'month':
+        cat_filter['date__month'] = sel_month
     cat_data = []
     for key, label in EXPENSE_CATEGORIES:
-        amt = Expense.objects.filter(category=key, date__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
+        amt = Expense.objects.filter(category=key, **cat_filter).aggregate(Sum('amount'))['amount__sum'] or 0
         if amt:
             cat_data.append({'category': label.split(' ', 1)[-1], 'amount': float(amt)})
 
+    # Week data (always current week)
     monday = today - timedelta(days=today.weekday())
     weekly_data = []
     for i in range(7):
         d   = monday + timedelta(days=i)
         amt = Expense.objects.filter(date=d).aggregate(Sum('amount'))['amount__sum'] or 0
         weekly_data.append({'day': d.strftime('%a'), 'amount': float(amt), 'is_today': d == today})
+
+    # Month navigation
+    prev_month = sel_month - 1 if sel_month > 1 else 12
+    prev_year  = sel_year if sel_month > 1 else sel_year - 1
+    next_month = sel_month + 1 if sel_month < 12 else 1
+    next_year  = sel_year if sel_month < 12 else sel_year + 1
 
     quotes = [
         ("She believed she could, so she did.", "R.S. Grey"),
@@ -172,16 +220,24 @@ def dashboard(request):
 
     return render(request, 'dashboard.html', {
         'profile': profile, 'today': today,
-        'month_expenses': month_expenses, 'month_income': month_income,
+        'view_mode': view_mode,
+        'sel_year': sel_year, 'sel_month': sel_month,
+        'period_label': period_label,
+        'prev_month': prev_month, 'prev_year': prev_year,
+        'next_month': next_month, 'next_year': next_year,
+        'month_income': month_income, 'month_expenses': month_expenses,
         'net_balance': net_balance, 'total_savings': total_savings,
+        'debt_paid': debt_paid, 'total_debt': total_debt,
         'total_invest_val': total_invest_val, 'total_invested': total_invested,
         'monthly_subs': monthly_subs, 'net_worth': net_worth,
-        'subs_count': len(subs),
+        'subs_count': len(subs), 'active_debts': active_debts,
         'recent_expenses': recent_expenses, 'active_goals': active_goals,
         'upcoming_subs': upcoming_subs,
         'cat_data': json.dumps(cat_data),
         'weekly_data': json.dumps(weekly_data),
+        'monthly_breakdown': json.dumps(monthly_breakdown),
         'quote': quote, 'quote_author': quote_author,
+        'years': list(range(2023, today.year + 2)),
     })
 
 
@@ -734,3 +790,107 @@ def expense_delete(request, pk):
         exp.delete()
         messages.success(request, 'Expense deleted.')
     return redirect('expenses')
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEBT
+# ─────────────────────────────────────────────────────────────────────────────
+
+def debt_list(request):
+    debts       = Debt.objects.filter(is_active=True)
+    total_debt  = debts.aggregate(Sum('remaining_balance'))['remaining_balance__sum'] or 0
+    total_orig  = debts.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+
+    # Monthly payments chart — last 6 months
+    today = date.today()
+    monthly_payments = []
+    for i in range(5, -1, -1):
+        m = today.month - i
+        y = today.year
+        if m <= 0: m += 12; y -= 1
+        amt = DebtPayment.objects.filter(date__year=y, date__month=m).aggregate(Sum('amount'))['amount__sum'] or 0
+        monthly_payments.append({'month': date(y, m, 1).strftime('%b'), 'amount': float(amt)})
+
+    return render(request, 'debt.html', {
+        'debts': debts,
+        'total_debt': total_debt,
+        'total_orig': total_orig,
+        'debt_types': DEBT_TYPES,
+        'monthly_payments': json.dumps(monthly_payments),
+    })
+
+
+def debt_add(request):
+    if request.method == 'POST':
+        Debt.objects.create(
+            name=request.POST['name'],
+            debt_type=request.POST['debt_type'],
+            emoji=request.POST.get('emoji', '💳'),
+            total_amount=request.POST['total_amount'],
+            remaining_balance=request.POST['remaining_balance'],
+            monthly_payment=request.POST.get('monthly_payment', 0),
+            interest_rate=request.POST.get('interest_rate', 0),
+            lender=request.POST.get('lender', ''),
+            notes=request.POST.get('notes', ''),
+            due_date=request.POST.get('due_date') or None,
+        )
+        messages.success(request, 'Debt added. You\'ve got this! 💪')
+        return redirect('debt')
+    return render(request, 'debt_form.html', {
+        'debt_types': DEBT_TYPES,
+        'today': date.today().isoformat(),
+    })
+
+
+def debt_edit(request, pk):
+    debt = get_object_or_404(Debt, pk=pk)
+    if request.method == 'POST':
+        debt.name              = request.POST['name']
+        debt.debt_type         = request.POST['debt_type']
+        debt.emoji             = request.POST.get('emoji', debt.emoji)
+        debt.total_amount      = request.POST['total_amount']
+        debt.remaining_balance = request.POST['remaining_balance']
+        debt.monthly_payment   = request.POST.get('monthly_payment', 0)
+        debt.interest_rate     = request.POST.get('interest_rate', 0)
+        debt.lender            = request.POST.get('lender', '')
+        debt.notes             = request.POST.get('notes', '')
+        debt.due_date          = request.POST.get('due_date') or None
+        debt.save()
+        messages.success(request, 'Debt updated! ✨')
+        return redirect('debt')
+    return render(request, 'debt_form.html', {
+        'debt': debt, 'debt_types': DEBT_TYPES,
+        'today': date.today().isoformat(),
+    })
+
+
+def debt_pay(request, pk):
+    """Log a payment toward a debt."""
+    debt = get_object_or_404(Debt, pk=pk)
+    if request.method == 'POST':
+        amount = float(request.POST.get('amount', 0))
+        DebtPayment.objects.create(
+            debt=debt, amount=amount,
+            date=request.POST.get('date') or date.today(),
+            notes=request.POST.get('notes', ''),
+        )
+        # Reduce remaining balance
+        new_balance = max(0, float(debt.remaining_balance) - amount)
+        debt.remaining_balance = new_balance
+        if new_balance == 0:
+            debt.is_active = False
+            messages.success(request, f'🎉 "{debt.name}" fully paid off! Amazing!')
+        else:
+            messages.success(request, f'Payment of {amount:,.0f} recorded! 💪')
+        debt.save()
+    return redirect('debt')
+
+
+def debt_delete(request, pk):
+    debt = get_object_or_404(Debt, pk=pk)
+    if request.method == 'POST':
+        debt.is_active = False
+        debt.save()
+        messages.success(request, 'Debt archived.')
+    return redirect('debt')
