@@ -644,9 +644,9 @@ def monthly_analysis(request):
 
     total_income   = Income.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
     total_expenses = Expense.objects.filter(date__year=year, date__month=month).aggregate(Sum('amount'))['amount__sum'] or 0
-    net_balance = float(total_income) - float(total_expenses) - float(total_saved)
-
     total_saved = MonthlySaving.objects.filter(year=year, month=month).aggregate(Sum('amount'))['amount__sum'] or 0
+
+    net_balance    = float(total_income) - float(total_expenses) - float(total_saved)
 
     subs         = list(Subscription.objects.filter(is_active=True))
     monthly_subs = round(sum(s.monthly_cost for s in subs), 2)
