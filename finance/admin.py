@@ -1,33 +1,33 @@
 from django.contrib import admin
-from .models import (Income,
-    UserProfile, Expense, SavingsAccount, SavingsTransaction,
+from .models import (
+    Income, UserProfile, Expense, SavingsAccount, SavingsBalanceHistory,
     Investment, Subscription, Goal,
 )
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['display_name', 'currency', 'created_at']
-    exclude = ['pin_hash', 'passphrase_hash']
+    list_display  = ['display_name', 'currency', 'created_at']
+    exclude       = ['pin_hash', 'passphrase_hash']
 
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
-    list_display = ['title', 'amount', 'income_type', 'date', 'is_recurring']
-    list_filter  = ['income_type', 'date']
+    list_display  = ['title', 'amount', 'income_type', 'date', 'is_recurring']
+    list_filter   = ['income_type', 'date']
     search_fields = ['title', 'notes']
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ['title', 'amount', 'category', 'date', 'payment_method']
-    list_filter  = ['category', 'date']
+    list_display  = ['title', 'amount', 'category', 'date', 'payment_method', 'is_recurring']
+    list_filter   = ['category', 'date', 'is_recurring']
     search_fields = ['title', 'notes']
 
 @admin.register(SavingsAccount)
 class SavingsAccountAdmin(admin.ModelAdmin):
-    list_display = ['name', 'balance', 'target', 'is_active']
+    list_display = ['name', 'bank_name', 'balance', 'linked_goal', 'is_active']
 
-@admin.register(SavingsTransaction)
-class SavingsTransactionAdmin(admin.ModelAdmin):
-    list_display = ['account', 'transaction_type', 'amount', 'date']
+@admin.register(SavingsBalanceHistory)
+class SavingsBalanceHistoryAdmin(admin.ModelAdmin):
+    list_display = ['account', 'balance', 'date', 'notes']
 
 @admin.register(Investment)
 class InvestmentAdmin(admin.ModelAdmin):
