@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Income, UserProfile, Expense, SavingsAccount, SavingsBalanceHistory,
+    Income, UserProfile, Expense, MonthlySaving,
     Investment, Subscription, Goal,
 )
 
@@ -21,13 +21,10 @@ class ExpenseAdmin(admin.ModelAdmin):
     list_filter   = ['category', 'date', 'is_recurring']
     search_fields = ['title', 'notes']
 
-@admin.register(SavingsAccount)
-class SavingsAccountAdmin(admin.ModelAdmin):
-    list_display = ['name', 'bank_name', 'balance', 'linked_goal', 'is_active']
-
-@admin.register(SavingsBalanceHistory)
-class SavingsBalanceHistoryAdmin(admin.ModelAdmin):
-    list_display = ['account', 'balance', 'date', 'notes']
+@admin.register(MonthlySaving)
+class MonthlySavingAdmin(admin.ModelAdmin):
+    list_display = ['year', 'month', 'amount', 'notes']
+    list_filter  = ['year']
 
 @admin.register(Investment)
 class InvestmentAdmin(admin.ModelAdmin):
