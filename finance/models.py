@@ -240,3 +240,35 @@ class Goal(models.Model):
         if self.days_remaining and self.days_remaining > 0 and self.remaining > 0:
             return round(self.remaining / (self.days_remaining / 30), 2)
         return None
+
+
+# ── INCOME ────────────────────────────────────────────────────────────────────
+
+INCOME_TYPES = [
+    ('salary',         '💼 Salary'),
+    ('freelance',      '💻 Freelance / Side Work'),
+    ('field_expense',  '🧾 Field Expense (Reimbursable)'),
+    ('business',       '🏢 Business Income'),
+    ('investment',     '📈 Investment Returns'),
+    ('other',          '📦 Other'),
+]
+
+
+class Income(models.Model):
+    title        = models.CharField(max_length=200)
+    amount       = models.DecimalField(max_digits=12, decimal_places=2)
+    income_type  = models.CharField(max_length=30, choices=INCOME_TYPES, default='salary')
+    date         = models.DateField(default=timezone.now)
+    notes        = models.TextField(blank=True)
+    is_recurring = models.BooleanField(default=False, help_text='Monthly recurring income')
+    created_at   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f'{self.title} — {self.amount}'
+
+    @property
+    def income_type_label(self):
+        return dict(INCOME_TYPES).get(self.income_type, self.income_type)
